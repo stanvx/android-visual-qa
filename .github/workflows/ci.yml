@@ -21,3 +21,69 @@ jobs:
 
       - name: Run tests
         run: ./gradlew test --no-daemon
+
+  # ---------------------------------------------------------------------------
+  # connectedAndroidTest — instrumented benchmarks on a Pixel 6 emulator
+  # ---------------------------------------------------------------------------
+  # This job uses reactivecircus/android-emulator-runner to spin up a
+  # hardware-accelerated AVD (Pixel 6, API 31), then runs the macrobenchmark
+  # tests from the :benchmark module.
+  #
+  # The job takes ~30 minutes to complete.  Timeout is set to 60 minutes to
+  # accommodate slower CI runners and flaky emulator boots.
+  #
+  # Lane U (:benchmark) owns the benchmark source; this job is the CI harness.
+  # ---------------------------------------------------------------------------
+  benchmark:
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    strategy:
+      matrix:
+        api-level: [31]
+        target: [google_apis]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+            sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -la /dev/kvm
+
+      - name: Create AVD and run benchmarks
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          target: ${{ matrix.target }}
+          arch: x86_64
+          avd-name: Pixel6Api31
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          disable-animations: true
+          script: |
+            # Wait for boot to complete
+            adb wait-for-device
+            adb shell settings put global window_animation_scale 0.0
+            adb shell settings put global transition_animation_scale 0.0
+            adb shell settings put global animator_duration_scale 0.0
+
+            # Run the benchmark
+            ./gradlew :benchmark:pixel6Api31Benchmark --no-daemon --stacktrace
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark/build/outputs/

@@ -29,6 +29,27 @@ android {
         compose = true
     }
 
+    buildTypes {
+        debug {
+            isMinifyEnabled = false
+        }
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            // ponytail: debug keystore as placeholder; M6 Enterprise ships with a real release keystore
+            signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+
+    // ponytail: automaticGenerationDuringBuild is set by Lane U (:benchmark) when the
+    // androidx.benchmark.baseline-profile Gradle plugin is applied.  The placeholder
+    // baseline-prof.txt at src/main/ exists so the build won't fail when the
+    // baseline-profile plugin reads it.
+
     testOptions {
         unitTests.isReturnDefaultValues = true
     }

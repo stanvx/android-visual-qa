@@ -1,0 +1,13 @@
+# =============================================================================
+# Baseline Profile — Android Visual QA
+# =============================================================================
+# THIS IS A PLACEHOLDER.
+#
+# Lane U (`:benchmark`) generates the real baseline profile via
+# Macrobenchmark + BaselineProfileRule in CI.  This file MUST exist for the
+# Gradle build to succeed before Lane U's generator is wired in.
+#
+# When the CI-generated profile arrives it will overwrite this file.
+# =============================================================================
+
+# Placeholder profile — valid empty profile
