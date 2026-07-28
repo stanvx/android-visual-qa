@@ -25,9 +25,10 @@ include(":capture:api")
 include(":core:files")
 include(":capture:pixels")
 
+include(":report")
+
 // Future modules (uncomment when needed):
 // include(":core:bitmap")
-// include(":core:report")
 // include(":capture:device")
 // include(":capture:emulator")
 // include(":capture:writer")
