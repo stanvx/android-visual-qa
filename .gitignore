@@ -1,2 +1,44 @@
 # deepwork state git-local — not committed
 .slim/deepwork/
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+captures/
+
+# Kotlin
+.kotlin/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Keystores (never commit signing material)
+*.jks
+*.keystore
+release.keystore.properties
+
+# Generated
+*.apk
+*.aab
+*.aar
+*.ap_
+*.dex
+
+# Logs
+*.log
+
+# Local config
+*.local
+
+# OpenCode-local visibility file (not a Git convention)
+.ignore
