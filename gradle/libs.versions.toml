@@ -5,6 +5,10 @@ kotlinx-datetime = "0.6.1"
 kotlinx-serialization = "1.7.3"
 junit-jupiter = "5.11.4"
 
+# Unit test infrastructure — added in M2 for :capture:accessibility tests
+robolectric = "4.14.1"
+androidx-test-ext-junit = "1.2.1"
+
 agp = "8.8.2"
 compose-bom = "2024.10.01"
 activity-compose = "1.9.3"
@@ -18,6 +22,8 @@ kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 kotlinx-datetime = { group = "org.jetbrains.kotlinx", name = "kotlinx-datetime", version.ref = "kotlinx-datetime" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version.ref = "junit-jupiter" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidx-test-ext-junit" }
 
 # AndroidX Compose (version managed by BOM)
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "compose-bom" }

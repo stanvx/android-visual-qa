@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Accessibility service configuration for VisualFeedbackAccessibilityService.
+
+    Events: only window-state-changed and window-content-changed for the
+            recent-event ring buffer. No broad event streams "just in case."
+
+    Flags:  flagReportViewIds           — stable view IDs for matching
+            flagRetrieveInteractiveWindows — window-per-window root nodes
+
+    M2 consolidation note: :app/src/main/res/xml/accessibility_service_config.xml
+    is the live copy. This mirror exists so the lib is self-documenting. Lane K-fix
+    will remove the :app copy and point :app's manifest at this resource via
+    tools:replace or a manifest merge rule.
+-->
+<accessibility-service
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows"
+    android:canRetrieveWindowContent="true"
+    android:canTakeScreenshot="true"
+    android:notificationTimeout="100" />

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+        This library module exposes VisualFeedbackAccessibilityService as a class.
+        The service manifest entry lives in :app (app/src/main/AndroidManifest.xml).
+        When both modules declare the same service, use tools:replace or manifest
+        merging rules in :app. M2 lane K-fix will consolidate ownership.
+    -->
+
+</manifest>
