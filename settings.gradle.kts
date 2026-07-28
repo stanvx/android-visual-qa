@@ -31,6 +31,12 @@ include(":report")
 include(":annotation")
 include(":app")
 
+// M2 Android modules
+include(":capture:accessibility")
+
+// M2 modules
+include(":matching")
+
 // Future modules (uncomment when needed):
 // include(":core:bitmap")
 // include(":capture:device")
