@@ -89,34 +89,12 @@ public object CaptureReducer {
             || this is CaptureState.Cancelled
             || this is CaptureState.Failed
 
-    @Suppress("UNCHECKED_CAST")
-    private fun <S : CaptureState> requireState(
+    private inline fun <reified S : CaptureState> requireState(
         state: CaptureState,
         lazyMessage: () -> String,
     ): S {
-        // kotlin stdlib require does not support reified, so we cast manually
-        @Suppress("FunctionOnlyReturningConstant")
-        fun <S : CaptureState> cast(state: CaptureState): S? {
-            return when (S::class) {
-                CaptureState.Idle::class -> if (state is CaptureState.Idle) state as S else null
-                CaptureState.Armed::class -> if (state is CaptureState.Armed) state as S else null
-                CaptureState.SnapshottingContext::class -> if (state is CaptureState.SnapshottingContext) state as S else null
-                CaptureState.CapturingPixels::class -> if (state is CaptureState.CapturingPixels) state as S else null
-                CaptureState.PersistingDraft::class -> if (state is CaptureState.PersistingDraft) state as S else null
-                CaptureState.LaunchingEditor::class -> if (state is CaptureState.LaunchingEditor) state as S else null
-                CaptureState.Annotating::class -> if (state is CaptureState.Annotating) state as S else null
-                CaptureState.Enriching::class -> if (state is CaptureState.Enriching) state as S else null
-                CaptureState.Reviewing::class -> if (state is CaptureState.Reviewing) state as S else null
-                CaptureState.Saving::class -> if (state is CaptureState.Saving) state as S else null
-                CaptureState.Exporting::class -> if (state is CaptureState.Exporting) state as S else null
-                CaptureState.Complete::class -> if (state is CaptureState.Complete) state as S else null
-                CaptureState.Cancelled::class -> if (state is CaptureState.Cancelled) state as S else null
-                CaptureState.Failed::class -> if (state is CaptureState.Failed) state as S else null
-                CaptureState.Resuming::class -> if (state is CaptureState.Resuming) state as S else null
-                else -> null
-            }
-        }
-        return cast<S>(state) ?: throw IllegalStateException(lazyMessage())
+        if (state !is S) throw IllegalStateException(lazyMessage())
+        return state
     }
 
     private fun illegalTransition(state: CaptureState, commandName: String): Nothing {

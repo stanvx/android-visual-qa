@@ -8,6 +8,7 @@ import java.util.UUID
  * ponytail: simple UUID wrapper; migrate to a value class in a later lane
  * if serialization boundaries require it.
  */
+@JvmInline
 public value class DraftId(public val value: String) {
     public companion object {
         public fun random(): DraftId = DraftId(UUID.randomUUID().toString())
