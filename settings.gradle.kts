@@ -45,7 +45,6 @@ include(":core:database")
 include(":sdk:compose-core")
 include(":sdk:compose")
 include(":sample:target-compose")
-include(":sdk:compose")
 include(":sample:sdk-integration")
 
 // Future modules (uncomment when needed):

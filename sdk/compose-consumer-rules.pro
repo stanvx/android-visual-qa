@@ -1,0 +1,2 @@
+-keep class com.androidvisualqa.sdk.compose.** { public *; }
+-keep class com.androidvisualqa.sdk.composecore.** { public *; }
