@@ -8,8 +8,6 @@ import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import java.io.IOException
-import java.nio.channels.FileChannel
-import java.nio.channels.OverlappingFileLockException
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 
@@ -40,9 +38,11 @@ public interface ReportHistoryIndex {
  * File-system-backed [ReportHistoryIndex] stored as JSONL (one [HistoryEntry]
  * per line) at [indexPath].
  *
- * Thread-safety: a per-file [java.nio.channels.FileLock] is acquired for the
- * duration of each append. The lock is exclusive — only one writer at a time
- * across processes on the same file. List operations read without a lock.
+ * Append writes use [Files.write] with [StandardOpenOption.APPEND] and rely
+ * on filesystem-level append atomicity for short writes. Cross-process
+ * concurrent appends are not safe in M1.
+ *
+ * // TODO(m3): add FileLock when retention cleanup runs as a separate process.
  */
 public class FileSystemReportHistoryIndex(
     public val indexPath: Path,

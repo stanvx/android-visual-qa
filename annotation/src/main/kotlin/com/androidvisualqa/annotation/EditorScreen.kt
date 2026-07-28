@@ -32,6 +32,8 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
@@ -117,7 +119,11 @@ public fun EditorScreen(
                         enabled = state.undoStack.isNotEmpty(),
                     ) {
                         // ponytail: simple text label instead of a vector icon for M1
-                        Text("↩", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "↩",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.semantics { contentDescription = "Undo" },
+                        )
                     }
                     // Redo
                     IconButton(
@@ -135,7 +141,11 @@ public fun EditorScreen(
                         },
                         enabled = state.redoStack.isNotEmpty(),
                     ) {
-                        Text("↪", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "↪",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.semantics { contentDescription = "Redo" },
+                        )
                     }
                     // Save chip
                     Surface(
@@ -176,6 +186,7 @@ public fun EditorScreen(
                 Canvas(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .semantics { contentDescription = "Annotation canvas" }
                         .aspectRatio(
                             if (state.bitmap != null && state.bitmap.width > 0 && state.bitmap.height > 0)
                                 state.bitmap.width.toFloat() / state.bitmap.height.toFloat()
@@ -311,12 +322,12 @@ public fun EditorScreen(
                             drawRect(
                                 color = Color(0xFF6750A4L),
                                 topLeft = Offset(
-                                    min(s.x, e.x) * (canvasWidth / size.width) + panX,
-                                    min(s.y, e.y) * (canvasHeight / size.height) + panY,
+                                    min(s.x, e.x) + panX,
+                                    min(s.y, e.y) + panY,
                                 ),
                                 size = Size(
-                                    abs(e.x - s.x) * (canvasWidth / size.width),
-                                    abs(e.y - s.y) * (canvasHeight / size.height),
+                                    abs(e.x - s.x),
+                                    abs(e.y - s.y),
                                 ),
                                 style = Stroke(width = 3.dp.toPx()),
                             )

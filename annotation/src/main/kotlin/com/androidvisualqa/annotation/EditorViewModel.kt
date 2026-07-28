@@ -54,6 +54,8 @@ public class EditorViewModel(application: Application) : AndroidViewModel(applic
     }
 
     public fun addRectangle(rect: RectangleAnnotation) {
+        // Guard: prevent undo-stack accumulation of null-bitmap states
+        if (_state.value.bitmap == null) return
         val current = _state.value
         _state.value = current.copy(
             rectangles = current.rectangles + rect,

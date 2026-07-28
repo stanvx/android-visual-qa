@@ -14,6 +14,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -117,6 +118,11 @@ private fun DraftListScreen(
 
 /**
  * Wraps the [EditorScreen] with a [EditorViewModel], loading the given [draftId].
+ *
+ * Routes [EditorScreen.onStateChange] to the appropriate ViewModel methods
+ * by detecting which field changed between the old and new state. This avoids
+ * requiring [EditorScreen] to expose per-action callbacks while still keeping
+ * the ViewModel as the single source of truth.
  */
 @Composable
 private fun EditorScreenWrapper(
@@ -126,7 +132,6 @@ private fun EditorScreenWrapper(
     onCancel: () -> Unit,
 ) {
     androidx.compose.runtime.LaunchedEffect(draftId) {
-        // Load the draft on first composition; null draftId means "new draft"
         viewModel.loadDraft(
             draftId?.let { DraftId(it) }
         )
@@ -134,9 +139,34 @@ private fun EditorScreenWrapper(
 
     val state = viewModel.state.collectAsStateWithLifecycle().value
 
+    // Remember the previous state so we can diff on the next recomposition.
+    // Use an array to work around lambda capture of a mutable ref — this var
+    // is mutated inside onStateChange but never drives recomposition directly.
+    val lastStateRef = remember { arrayOf(state) }
+
     EditorScreen(
         state = state,
-        onStateChange = { /* view model drives state via its internal flow */ },
+        onStateChange = { newState ->
+            val prev = lastStateRef[0]
+            lastStateRef[0] = newState
+
+            // Detect what changed and route to the correct ViewModel method.
+            // undoStack popped  → undo
+            // redoStack popped  → redo
+            // rectangles appended → addRectangle on the new one
+            // feedbackText changed → setFeedbackText
+            when {
+                prev.undoStack.size > newState.undoStack.size -> viewModel.undo()
+                prev.redoStack.size > newState.redoStack.size -> viewModel.redo()
+                newState.rectangles.size > prev.rectangles.size -> {
+                    val added = newState.rectangles.last()
+                    viewModel.addRectangle(added)
+                }
+                newState.feedbackText != prev.feedbackText -> {
+                    viewModel.setFeedbackText(newState.feedbackText)
+                }
+            }
+        },
         onSave = { rect, text ->
             viewModel.save { r, t -> onSave(Unit, t) }
         },

@@ -31,12 +31,8 @@ android {
 }
 
 dependencies {
-    // Project dependencies (existing pure-Kotlin M0/M1 modules)
+    // Project dependencies (kept: used in source; removed: :capture:api, :capture:pixels, :report, :core:geometry — unused in M1)
     implementation(project(":core:model"))
-    implementation(project(":core:geometry"))
-    implementation(project(":capture:api"))
-    implementation(project(":capture:pixels"))
-    implementation(project(":report"))
     implementation(project(":core:files"))
 
     // Compose
