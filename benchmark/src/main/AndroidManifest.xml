@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Benchmark module manifest.
+
+  QUERY_ALL_PACKAGES is required by Macrobenchmark to resolve and launch
+  the target app package (com.androidvisualqa.app) on API 30+.
+
+  INTERNET is not required — baseline profile uploads happen via the
+  benchmark Gradle plugin at build time, not from the device.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+</manifest>

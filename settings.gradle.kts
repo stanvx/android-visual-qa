@@ -53,6 +53,9 @@ include(":export:agent")
 include(":export:github")
 include(":export:jira")
 
+// M6 modules
+include(":benchmark")
+
 // Future modules (uncomment when needed):
 // include(":core:bitmap")
 // include(":capture:device")
