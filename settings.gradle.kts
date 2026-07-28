@@ -21,6 +21,10 @@ include(":core:geometry")
 include(":core:testing")
 include(":capture:api")
 
+// M1 modules
+include(":core:files")
+include(":capture:pixels")
+
 // Future modules (uncomment when needed):
 // include(":core:bitmap")
 // include(":core:report")
