@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>M1 Editor Preview</title>
+<style>
+  :root {
+    --m3-8: 8px;
+    --m3-16: 16px;
+    --m3-24: 24px;
+    --m3-48: 48px;
+    --m3-56: 56px;
+    --m3-64: 64px;
+  }
+
+  /* Light scheme */
+  :root, [data-scheme="light"] {
+    --surface: #fbf8fd;
+    --surface-container: #f1ecf6;
+    --on-surface: #1c1b1f;
+    --on-surface-variant: #49454e;
+    --primary: #6750a4;
+    --on-primary: #ffffff;
+    --primary-container: #e9ddff;
+    --on-primary-container: #22005d;
+    --error: #b3261e;
+    --outline: #79747e;
+    --outline-variant: #cac4d0;
+    --canvas-bg: #ece6f0;
+    --placeholder-top: #c5b8d9;
+    --placeholder-bot: #8a7ba5;
+    --rect-stroke: #6750a4;
+    --rect-handle: #ffffff;
+    --page-bg: #e7e0ec;
+  }
+
+  [data-scheme="dark"] {
+    --surface: #141218;
+    --surface-container: #211f26;
+    --on-surface: #e6e1e5;
+    --on-surface-variant: #cac4d0;
+    --primary: #d0bcff;
+    --on-primary: #381e72;
+    --primary-container: #4f378b;
+    --on-primary-container: #e9ddff;
+    --error: #f2b8b5;
+    --outline: #938f99;
+    --outline-variant: #49454e;
+    --canvas-bg: #1c1b1f;
+    --placeholder-top: #3d3651;
+    --placeholder-bot: #1f1b2a;
+    --rect-stroke: #d0bcff;
+    --rect-handle: #141218;
+    --page-bg: #0f0e13;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--page-bg);
+    color: var(--on-surface);
+    font-family: Roboto, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--m3-24) 16px;
+    gap: var(--m3-16);
+  }
+
+  .toolbar {
+    display: flex;
+    gap: var(--m3-8);
+    align-items: center;
+  }
+  .toolbar button {
+    height: var(--m3-48);
+    min-width: var(--m3-48);
+    padding: 0 var(--m3-16);
+    border-radius: 24px;
+    border: 1px solid var(--outline);
+    background: var(--surface-container);
+    color: var(--on-surface);
+    font: 500 14px/20px Roboto, system-ui, sans-serif;
+    letter-spacing: 0.1px;
+    cursor: pointer;
+  }
+  .toolbar button[aria-pressed="true"] {
+    background: var(--primary);
+    color: var(--on-primary);
+    border-color: var(--primary);
+  }
+
+  .caption {
+    font: 400 12px/16px Roboto, system-ui, sans-serif;
+    color: var(--on-surface-variant);
+  }
+
+  /* Phone frame */
+  .phone {
+    width: 360px;
+    height: 800px;
+    background: var(--surface);
+    border-radius: 28px;
+    border: 1px solid var(--outline-variant);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Status bar */
+  .status {
+    height: 24px;
+    padding: 4px 16px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font: 500 12px/16px Roboto, system-ui, sans-serif;
+    color: var(--on-surface);
+  }
+
+  /* App bar */
+  .app-bar {
+    height: var(--m3-64);
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface-container);
+    border-bottom: 1px solid var(--outline-variant);
+  }
+  .chip {
+    height: var(--m3-48);
+    min-width: var(--m3-48);
+    padding: 0 var(--m3-16);
+    border-radius: 24px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--on-surface);
+    font: 500 14px/20px Roboto, system-ui, sans-serif;
+    cursor: pointer;
+  }
+  .chip.save {
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+  }
+  .chip.cancel {
+    color: var(--on-surface);
+  }
+  .title {
+    font: 500 22px/28px Roboto, system-ui, sans-serif;
+    letter-spacing: 0;
+  }
+
+  /* Canvas area */
+  .canvas-frame {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: var(--m3-16);
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+  }
+  .canvas {
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
+    background: var(--canvas-bg);
+    border: 1px solid var(--outline-variant);
+    position: relative;
+    overflow: hidden;
+  }
+  .placeholder {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--placeholder-top), var(--placeholder-bot));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .placeholder svg { width: 100%; height: 100%; display: block; }
+
+  /* Rectangle on the canvas */
+  .rect {
+    position: absolute;
+    left: 22%;
+    top: 38%;
+    width: 38%;
+    height: 22%;
+    border: 3px solid var(--rect-stroke);
+    border-radius: 2px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.05);
+  }
+  .rect::before, .rect::after {
+    content: "";
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: var(--rect-handle);
+    border: 2px solid var(--rect-stroke);
+    border-radius: 50%;
+  }
+  .rect::before { left: -5px; top: -5px; }
+  .rect::after { right: -5px; bottom: -5px; }
+
+  /* Tool palette */
+  .palette {
+    height: var(--m3-56);
+    padding: 0 var(--m3-16);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    background: var(--surface-container);
+    border-top: 1px solid var(--outline-variant);
+  }
+  .tool {
+    width: var(--m3-48);
+    height: var(--m3-48);
+    border-radius: 24px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--on-surface-variant);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    cursor: pointer;
+    font: 500 11px/14px Roboto, system-ui, sans-serif;
+  }
+  .tool[aria-pressed="true"] {
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+  }
+  .tool svg { width: 24px; height: 24px; }
+
+  /* Feedback text field */
+  .feedback {
+    padding: var(--m3-16);
+    background: var(--surface);
+    border-top: 1px solid var(--outline-variant);
+  }
+  .feedback label {
+    display: block;
+    font: 500 12px/16px Roboto, system-ui, sans-serif;
+    color: var(--on-surface-variant);
+    margin-bottom: var(--m3-8);
+  }
+  .feedback textarea {
+    width: 100%;
+    min-height: 64px;
+    max-height: 144px;
+    padding: var(--m3-16);
+    border-radius: 8px;
+    border: 1px solid var(--outline);
+    background: var(--surface-container);
+    color: var(--on-surface);
+    font: 400 16px/24px Roboto, system-ui, sans-serif;
+    resize: none;
+  }
+  .feedback textarea:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  /* Save bar */
+  .save-bar {
+    height: var(--m3-56);
+    padding: 0 var(--m3-16);
+    display: flex;
+    align-items: center;
+    gap: var(--m3-8);
+    background: var(--surface-container);
+    border-top: 1px solid var(--outline-variant);
+  }
+  .save-bar button {
+    flex: 1;
+    height: var(--m3-48);
+    border-radius: 24px;
+    border: 1px solid var(--outline);
+    background: transparent;
+    color: var(--on-surface);
+    font: 500 14px/20px Roboto, system-ui, sans-serif;
+    cursor: pointer;
+  }
+  .save-bar button.primary {
+    background: var(--primary);
+    color: var(--on-primary);
+    border-color: var(--primary);
+  }
+</style>
+</head>
+<body>
+<div class="page" data-scheme="light">
+  <div class="toolbar" role="group" aria-label="Color scheme">
+    <button id="btn-light" aria-pressed="true">Light</button>
+    <button id="btn-dark" aria-pressed="false">Dark</button>
+  </div>
+  <div class="caption">M1 editor — static preview. 360×800, 8dp grid, 48dp targets.</div>
+
+  <div class="phone" role="application" aria-label="Annotation editor preview">
+    <div class="status" aria-hidden="true">
+      <span>9:41</span>
+      <span>100%</span>
+    </div>
+
+    <div class="app-bar">
+      <button class="chip cancel" type="button">Cancel</button>
+      <div class="title">Annotate</div>
+      <button class="chip save" type="button">Save</button>
+    </div>
+
+    <div class="canvas-frame">
+      <div class="canvas" role="img" aria-label="Frozen screenshot of the captured screen">
+        <div class="placeholder">
+          <svg viewBox="0 0 360 480" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#c5b8d9"/>
+                <stop offset="100%" stop-color="#8a7ba5"/>
+              </linearGradient>
+            </defs>
+            <rect width="360" height="480" fill="url(#g)"/>
+            <!-- Faux app chrome -->
+            <rect x="24" y="32" width="312" height="56" rx="12" fill="rgba(255,255,255,0.85)"/>
+            <rect x="40" y="56" width="120" height="8" rx="4" fill="#5b4d7a"/>
+            <rect x="24" y="104" width="312" height="72" rx="12" fill="rgba(255,255,255,0.7)"/>
+            <rect x="40" y="120" width="280" height="8" rx="4" fill="#5b4d7a"/>
+            <rect x="40" y="140" width="200" height="8" rx="4" fill="#8a7ba5"/>
+            <rect x="24" y="192" width="312" height="120" rx="12" fill="rgba(255,255,255,0.85)"/>
+            <rect x="40" y="212" width="240" height="10" rx="5" fill="#3a2f5a"/>
+            <rect x="40" y="232" width="180" height="8" rx="4" fill="#5b4d7a"/>
+            <rect x="40" y="248" width="220" height="8" rx="4" fill="#8a7ba5"/>
+            <rect x="24" y="328" width="148" height="120" rx="12" fill="rgba(255,255,255,0.85)"/>
+            <rect x="188" y="328" width="148" height="120" rx="12" fill="rgba(255,255,255,0.85)"/>
+          </svg>
+        </div>
+        <div class="rect" aria-label="Issue rectangle drawn by the user"></div>
+      </div>
+    </div>
+
+    <div class="palette" role="toolbar" aria-label="Tools">
+      <button class="tool" type="button" aria-label="Rectangle tool" aria-pressed="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="7" width="14" height="10" rx="1"/></svg>
+        <span>Rect</span>
+      </button>
+      <button class="tool" type="button" aria-label="Undo" aria-pressed="false" disabled style="opacity:0.4">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14l-4-4 4-4"/><path d="M5 10h9a5 5 0 0 1 0 10h-2"/></svg>
+        <span>Undo</span>
+      </button>
+      <button class="tool" type="button" aria-label="Redo" aria-pressed="false" disabled style="opacity:0.4">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 14l4-4-4-4"/><path d="M19 10h-9a5 5 0 0 0 0 10h2"/></svg>
+        <span>Redo</span>
+      </button>
+      <button class="tool" type="button" aria-label="Delete rectangle" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 7h12"/><path d="M9 7v-2a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M7 7l1 13a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2l1-13"/></svg>
+        <span>Clear</span>
+      </button>
+    </div>
+
+    <div class="feedback">
+      <label for="fb">Describe the issue</label>
+      <textarea id="fb" rows="3" aria-label="Feedback text">Submit button overlaps the keyboard</textarea>
+    </div>
+
+    <div class="save-bar">
+      <button type="button">Continue editing</button>
+      <button type="button" class="primary">Save &amp; review</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Pure visual preview. The toggle only swaps the data-scheme attribute.
+  var root = document.querySelector('.page');
+  var light = document.getElementById('btn-light');
+  var dark = document.getElementById('btn-dark');
+  function setScheme(s) {
+    root.setAttribute('data-scheme', s);
+    light.setAttribute('aria-pressed', s === 'light' ? 'true' : 'false');
+    dark.setAttribute('aria-pressed', s === 'dark' ? 'true' : 'false');
+  }
+  light.addEventListener('click', function () { setScheme('light'); });
+  dark.addEventListener('click', function () { setScheme('dark'); });
+</script>
+</body>
+</html>
