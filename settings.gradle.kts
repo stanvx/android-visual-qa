@@ -41,6 +41,13 @@ include(":matching")
 include(":core:privacy")
 include(":core:database")
 
+// M4 modules
+include(":sdk:compose-core")
+include(":sdk:compose")
+include(":sample:target-compose")
+include(":sdk:compose")
+include(":sample:sdk-integration")
+
 // Future modules (uncomment when needed):
 // include(":core:bitmap")
 // include(":capture:device")
