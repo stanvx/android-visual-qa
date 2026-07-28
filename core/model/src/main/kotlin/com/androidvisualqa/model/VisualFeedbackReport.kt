@@ -9,7 +9,6 @@ import com.androidvisualqa.model.feedback.FeedbackEvidence
 import com.androidvisualqa.model.ids.ReportId
 import com.androidvisualqa.model.privacy.PrivacyEvidence
 import com.androidvisualqa.model.selection.ComponentSelection
-import com.androidvisualqa.model.serialization.InstantAsIso8601Serializer
 import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 
@@ -36,7 +35,6 @@ import kotlinx.serialization.Serializable
 data class VisualFeedbackReport(
     val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
     val reportId: ReportId,
-    @Serializable(with = InstantAsIso8601Serializer::class)
     val createdAt: Instant,
     val status: ReportStatus,
     val capture: CaptureSession,

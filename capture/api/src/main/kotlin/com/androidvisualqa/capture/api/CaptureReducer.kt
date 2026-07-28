@@ -51,8 +51,8 @@ public object CaptureReducer {
 
     private fun onPixelsReady(state: CaptureState, command: CaptureCommand.PixelsReady): CaptureState {
         return when (state) {
-            is CaptureState.SnapshottingContext -> CaptureState.CapturingPixels
-            is CaptureState.CapturingPixels -> CaptureState.PersistingDraft
+            is CaptureState.SnapshottingContext -> CaptureState.ValidatingFrame
+            is CaptureState.ValidatingFrame -> CaptureState.PersistingDraft
             // TODO(m2): handle target-window-change between tree and pixels
             else -> illegalTransition(state, "PixelsReady")
         }

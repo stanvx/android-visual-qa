@@ -45,6 +45,9 @@ data class Polygon<S : CoordinateSpace>(
                 cy += (points[i].y + points[j].y) * a
             }
             signedArea /= 2.0
+            if (signedArea == 0.0) {
+                throw IllegalStateException("centroid is undefined for degenerate (zero-area) polygon")
+            }
             val area6 = 6.0 * signedArea
             return Point(
                 x = cx / area6,

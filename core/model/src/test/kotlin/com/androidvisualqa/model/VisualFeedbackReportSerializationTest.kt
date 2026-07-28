@@ -7,7 +7,6 @@ import com.androidvisualqa.model.capture.CaptureFrame
 import com.androidvisualqa.model.capture.CaptureMode
 import com.androidvisualqa.model.capture.CaptureSession
 import com.androidvisualqa.model.capture.ScreenshotMethod
-import com.androidvisualqa.model.capture.SessionState
 import com.androidvisualqa.model.capture.TriggerSource
 import com.androidvisualqa.model.export.ExportAttempt
 import com.androidvisualqa.model.feedback.FeedbackEvidence
@@ -42,7 +41,7 @@ class VisualFeedbackReportSerializationTest {
                 startedAt = now,
                 triggerSource = TriggerSource.AccessibilityOverlay,
                 captureMode = CaptureMode.Still,
-                state = SessionState.Complete,
+                lastStateName = "Complete",
                 draftId = DraftId("draft-001"),
             ),
             frame = CaptureFrame(

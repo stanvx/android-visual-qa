@@ -5,8 +5,6 @@ plugins {
 
 dependencies {
     implementation(project(":core:model"))
-    implementation(project(":capture:api"))
-    implementation(project(":core:geometry"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.datetime)

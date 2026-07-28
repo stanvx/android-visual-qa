@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class PolygonTest {
 
@@ -100,6 +101,18 @@ class PolygonTest {
             ),
         )
         assertEquals(6.0, tri.area, 1e-9)
+    }
+
+    @Test
+    fun `centroid throws on collinear polygon`() {
+        val collinear = Polygon(
+            listOf(
+                screenPx(0.0, 0.0),
+                screenPx(5.0, 0.0),
+                screenPx(10.0, 0.0),
+            ),
+        )
+        assertThrows<IllegalStateException> { collinear.centroid }
     }
 
     @Test

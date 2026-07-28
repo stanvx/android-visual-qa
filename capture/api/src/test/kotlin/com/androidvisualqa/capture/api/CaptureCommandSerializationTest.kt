@@ -26,11 +26,11 @@ class CaptureCommandSerializationTest {
 
     @Test
     fun `Trigger toString contains source`() {
-        val cmd = CaptureCommand.Trigger(TriggerSource.AccessibilityBubble)
+        val cmd = CaptureCommand.Trigger(com.androidvisualqa.model.capture.TriggerSource.AccessibilityOverlay)
         val str = cmd.toString()
         assertNotNull(str)
         assertTrue(
-            str.contains("AccessibilityBubble"),
+            str.contains("AccessibilityOverlay"),
             "Trigger.toString should include source: $str",
         )
     }
@@ -98,7 +98,7 @@ class CaptureCommandSerializationTest {
     fun `all command types have non-null toString`() {
         val now = Clock.System.now()
         val commands = listOf(
-            CaptureCommand.Trigger(TriggerSource.AccessibilityBubble),
+            CaptureCommand.Trigger(com.androidvisualqa.model.capture.TriggerSource.AccessibilityOverlay),
             CaptureCommand.ContextReady(
                 ContextSnapshot(
                     packageName = "com.example",

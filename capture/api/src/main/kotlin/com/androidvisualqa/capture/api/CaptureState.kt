@@ -7,8 +7,8 @@ package com.androidvisualqa.capture.api
  * ```
  * Idle ──Trigger──→ Armed
  * Armed ──ContextReady──→ SnapshottingContext
- * SnapshottingContext ──PixelsReady──→ CapturingPixels
- * CapturingPixels ──PixelsReady──→ PersistingDraft
+ * SnapshottingContext ──PixelsReady──→ ValidatingFrame
+ * ValidatingFrame ──PixelsReady──→ PersistingDraft
  * PersistingDraft ──EditorSaved──→ LaunchingEditor
  * (any active state) ──UserCancelled──→ Cancelled
  * (any active state) ──CaptureFailed──→ Failed
@@ -25,8 +25,8 @@ public sealed interface CaptureState {
     /** Context received; waiting for pixel capture. */
     public data object SnapshottingContext : CaptureState
 
-    /** Pixels received; performing atomic draft persistence. */
-    public data object CapturingPixels : CaptureState
+    /** Pixels received; validating frame before draft persistence. */
+    public data object ValidatingFrame : CaptureState
 
     /** Draft persisted; waiting for editor launch confirmation. */
     public data object PersistingDraft : CaptureState

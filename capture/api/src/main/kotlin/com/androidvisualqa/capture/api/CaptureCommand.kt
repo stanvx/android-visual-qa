@@ -1,5 +1,6 @@
 package com.androidvisualqa.capture.api
 
+import com.androidvisualqa.model.capture.TriggerSource
 import com.androidvisualqa.model.ids.DraftId
 
 /**

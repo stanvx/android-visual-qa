@@ -11,7 +11,7 @@ import kotlinx.serialization.Serializable
  * @property startedAt Monotonic wall-clock timestamp of session start.
  * @property triggerSource How the user initiated capture.
  * @property captureMode Still, recording, or manual-import.
- * @property state Current lifecycle state of the session.
+ * @property lastStateName Name of the last runtime state; see [com.androidvisualqa.capture.api.CaptureState] for the authoritative state machine.
  * @property draftId Reference to the persisted draft, if one was created.
  * @property failureReason Human-readable reason if the session failed.
  * @property wasUserCancelled True if the user explicitly cancelled.
@@ -22,7 +22,7 @@ data class CaptureSession(
     val startedAt: Instant,
     val triggerSource: TriggerSource,
     val captureMode: CaptureMode,
-    val state: SessionState,
+    val lastStateName: String = "Idle",
     val draftId: DraftId? = null,
     val failureReason: String? = null,
     val wasUserCancelled: Boolean = false,
@@ -44,20 +44,4 @@ enum class CaptureMode {
     ManualImport,
 }
 
-@Serializable
-enum class SessionState {
-    Idle,
-    Armed,
-    SnapshottingContext,
-    CapturingPixels,
-    PersistingDraft,
-    LaunchingEditor,
-    Annotating,
-    Enriching,
-    Reviewing,
-    Saving,
-    Exporting,
-    Complete,
-    Cancelled,
-    Failed,
-}
+
