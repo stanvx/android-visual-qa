@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+        Library module for share-sheet integration and save-to-Downloads.
+        The FileProvider declaration lives in :app's manifest.
+    -->
+
+</manifest>
