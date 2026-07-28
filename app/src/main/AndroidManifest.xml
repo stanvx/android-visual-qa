@@ -26,11 +26,12 @@
         <service
             android:name=".trigger.QuickSettingsTile"
             android:label="Capture feedback"
+            android:icon="@drawable/ic_capture_feedback"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
             android:exported="true"
             android:process=":a11y">
             <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
 
