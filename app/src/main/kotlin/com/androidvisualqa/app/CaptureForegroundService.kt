@@ -19,6 +19,7 @@ import com.androidvisualqa.report.FileSystemReportHistoryIndex
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -60,6 +61,7 @@ public class CaptureForegroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        serviceScope.cancel()
         super.onDestroy()
     }
 
@@ -103,6 +105,7 @@ public class CaptureForegroundService : Service() {
         val pngBytes = compressToPng(capturedFrame)
 
         return orchestrator.startCapture(
+            windowId = windowId,
             captureFrame = {
                 Result.success(CaptureResult(frame = capturedFrame, pngBytes = pngBytes))
             },

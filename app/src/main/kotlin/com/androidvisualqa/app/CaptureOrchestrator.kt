@@ -1,6 +1,5 @@
 package com.androidvisualqa.app
 
-import android.content.Context
 import com.androidvisualqa.annotation.RectangleAnnotation
 import com.androidvisualqa.capture.api.CapturedFrame
 import com.androidvisualqa.files.DraftDirectory
@@ -75,12 +74,14 @@ public class CaptureOrchestrator(
      * 2. Calls [packageName] to get the package name.
      * 3. Creates a draft and writes the original PNG.
      *
+     * @param windowId The accessibility window ID to record in the [CaptureFrame].
      * @param captureFrame Suspending lambda that captures the active window
      *   and returns [CaptureResult] containing the frame metadata and PNG bytes.
      * @param packageName Suspending lambda that returns the package name.
      * @return [Result.success] with the new [DraftId], or [Result.failure] on error.
      */
     public suspend fun startCapture(
+        windowId: Long,
         captureFrame: suspend () -> Result<CaptureResult>,
         packageName: suspend () -> String,
         draftStore: FileSystemDraftStore,
@@ -93,7 +94,7 @@ public class CaptureOrchestrator(
         // Build the frame metadata
         val frame = CaptureFrame(
             displayId = captureResult.frame.displayId,
-            windowId = 0,
+            windowId = windowId.toInt(),
             packageName = pkgName,
             activityTitle = null,
             widthPx = captureResult.frame.widthPx,
@@ -317,8 +318,6 @@ public class CaptureOrchestrator(
 
     public companion object {
         /** Creates a [CaptureOrchestrator] with default dependencies. */
-        public fun create(context: Context): CaptureOrchestrator {
-            return CaptureOrchestrator()
-        }
+        public fun create(): CaptureOrchestrator = CaptureOrchestrator()
     }
 }

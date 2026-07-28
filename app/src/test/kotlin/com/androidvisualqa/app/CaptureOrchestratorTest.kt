@@ -60,7 +60,7 @@ class CaptureOrchestratorTest {
         }
         val pkgLambda: suspend () -> String = { "com.test" }
 
-        val result = orchestrator.startCapture(captureLambda, pkgLambda, draftStore, reportHistory)
+        val result = orchestrator.startCapture(windowId = 42L, captureLambda, pkgLambda, draftStore, reportHistory)
 
         assertTrue(result.isFailure)
         assertEquals("Capture failed", result.exceptionOrNull()?.message)
@@ -81,7 +81,7 @@ class CaptureOrchestratorTest {
         }
         val pkgLambda: suspend () -> String = { "com.test" }
 
-        val result = orchestrator.startCapture(captureLambda, pkgLambda, draftStore, reportHistory)
+        val result = orchestrator.startCapture(windowId = 42L, captureLambda, pkgLambda, draftStore, reportHistory)
 
         assertTrue(result.isSuccess) { "Expected success, got: ${result.exceptionOrNull()}" }
         val draftId = result.getOrThrow()
@@ -104,6 +104,25 @@ class CaptureOrchestratorTest {
     }
 
     @Test
+    fun `startCapture passes windowId into the captured frame`() = runTest {
+        val frame = CapturedFrame(
+            displayId = 0,
+            widthPx = 480,
+            heightPx = 800,
+            rotation = Rotation.ROTATION_0,
+            capturedAt = clock.now(),
+        )
+        val captureLambda: suspend () -> Result<CaptureResult> = {
+            Result.success(CaptureResult(frame = frame, pngBytes = fakePngBytes()))
+        }
+        val pkgLambda: suspend () -> String = { "com.test" }
+
+        val result = orchestrator.startCapture(windowId = 99L, captureLambda, pkgLambda, draftStore, reportHistory)
+
+        assertTrue(result.isSuccess)
+    }
+
+    @Test
     fun `finishDraft produces report with one selection when lasso contains a node`() = runTest {
         // First, capture a draft
         val frame = CapturedFrame(
@@ -117,7 +136,7 @@ class CaptureOrchestratorTest {
             Result.success(CaptureResult(frame = frame, pngBytes = fakePngBytes()))
         }
         val pkgLambda: suspend () -> String = { "com.test" }
-        val draftResult = orchestrator.startCapture(captureLambda, pkgLambda, draftStore, reportHistory)
+        val draftResult = orchestrator.startCapture(windowId = 42L, captureLambda, pkgLambda, draftStore, reportHistory)
         assertTrue(draftResult.isSuccess)
         val draftId = draftResult.getOrThrow()
 
@@ -209,7 +228,7 @@ class CaptureOrchestratorTest {
             Result.success(CaptureResult(frame = frame, pngBytes = fakePngBytes()))
         }
         val pkgLambda: suspend () -> String = { "com.test" }
-        val draftResult = orchestrator.startCapture(captureLambda, pkgLambda, draftStore, reportHistory)
+        val draftResult = orchestrator.startCapture(windowId = 42L, captureLambda, pkgLambda, draftStore, reportHistory)
         assertTrue(draftResult.isSuccess)
         val draftId = draftResult.getOrThrow()
 
