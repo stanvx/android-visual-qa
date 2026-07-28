@@ -27,6 +27,10 @@ include(":capture:pixels")
 
 include(":report")
 
+// M1 Android modules
+include(":annotation")
+include(":app")
+
 // Future modules (uncomment when needed):
 // include(":core:bitmap")
 // include(":capture:device")

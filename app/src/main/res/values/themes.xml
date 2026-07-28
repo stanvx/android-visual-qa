@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- M1: deferred to spec-driven Theme.AndroidVisualQa in M2.
+         Using android:Theme.Material.Light.NoActionBar as a stable base that
+         requires no extra Material dependency. The Compose MaterialTheme takes
+         over all visual theming at the composable layer.
+         // TODO(m2): replace with Theme.AndroidVisualQa defined per the design spec. -->
+    <style name="Theme.AndroidVisualQa" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Default M3 values apply. Purple-40 surface tint shipped in M2. -->
+    </style>
+</resources>
