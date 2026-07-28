@@ -2,23 +2,33 @@ package com.androidvisualqa.app
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -42,8 +52,8 @@ import java.io.File
 /**
  * Single-activity entry point for the Android Visual QA app.
  *
- * The FAB and notification path trigger real accessibility capture. Save
- * routes through matching, report assembly, and local history persistence.
+ * Capture entry points open the review editor after real accessibility capture.
+ * Save routes through matching, report assembly, and local history persistence.
  *
  * M3: First launch routes to [PermissionDisclosureScreen]. After that,
  * retention scheduling runs daily via [RetentionScheduler]. Process-death
@@ -65,7 +75,7 @@ public class MainActivity : ComponentActivity() {
         )
 
         setContent {
-            MaterialTheme {
+            VisualQaTheme {
                 AppNavigation(
                     applicationContext = applicationContext,
                     startAtDisclosure = !firstLaunchDone,
@@ -77,6 +87,20 @@ public class MainActivity : ComponentActivity() {
             }
         }
     }
+}
+
+@Composable
+private fun VisualQaTheme(content: @Composable () -> Unit) {
+    val context = LocalContext.current
+    val darkTheme = isSystemInDarkTheme()
+    val colorScheme = when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && darkTheme -> dynamicDarkColorScheme(context)
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> dynamicLightColorScheme(context)
+        darkTheme -> darkColorScheme(primary = Color(0xFF6750A4))
+        else -> lightColorScheme(primary = Color(0xFF6750A4))
+    }
+
+    MaterialTheme(colorScheme = colorScheme, content = content)
 }
 
 @Composable
@@ -122,8 +146,9 @@ private fun AppNavigation(
         composable("drafts") {
             DraftListScreen(
                 onNewDraft = {
-                    applicationContext.startForegroundService(
-                        Intent(applicationContext, CaptureForegroundService::class.java),
+                    applicationContext.startActivity(
+                        Intent(applicationContext, CaptureLaunchActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                     )
                 },
                 onOpenDraft = { draftId -> navController.navigate("editor/$draftId") },
@@ -170,10 +195,8 @@ private fun AppNavigation(
 }
 
 /**
- * Draft list screen with a FAB to start a new draft.
- *
- * The FAB starts the same foreground capture service used by the Quick Settings
- * tile; completion returns through the notification deep link.
+ * Draft list screen. Its capture action uses the same entry point as Quick
+ * Settings and S Pen Air Command.
  */
 @Composable
 private fun DraftListScreen(
@@ -182,28 +205,48 @@ private fun DraftListScreen(
 ) {
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = onNewDraft) {
-                Text(text = "+", style = MaterialTheme.typography.headlineMedium)
-            }
+            ExtendedFloatingActionButton(
+                onClick = onNewDraft,
+                icon = { Text(text = "+", style = MaterialTheme.typography.titleLarge) },
+                text = { Text(text = stringResource(R.string.capture_screen_action)) },
+            )
         },
     ) { innerPadding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
-            contentAlignment = Alignment.Center,
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = stringResource(R.string.draft_list_title),
-                    style = MaterialTheme.typography.headlineMedium,
-                )
-                Text(
-                    text = stringResource(R.string.draft_list_empty_hint),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                tonalElevation = 2.dp,
+            ) {
+                Column(modifier = Modifier.padding(24.dp)) {
+                    Text(
+                        text = stringResource(R.string.draft_list_title),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                    Text(
+                        text = stringResource(R.string.draft_list_empty_hint),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
             }
+            Text(
+                text = stringResource(R.string.draft_list_saved_hint),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 16.dp, start = 24.dp, end = 24.dp),
+            )
         }
     }
 }

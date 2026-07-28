@@ -3,19 +3,26 @@ package com.androidvisualqa.annotation
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Button
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -28,26 +35,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
 /**
- * M1 annotation editor screen.
+ * Review editor for one captured screen.
  *
  * Layout (top to bottom):
- * 1. Top app bar: Cancel chip (left) + title + Undo/Redo icons + Save chip (right).
- * 2. Frozen bitmap canvas with rectangle-drag overlay and pinch-to-zoom/one-finger-pan.
- * 3. Feedback text field pinned above the IME.
- * 4. Save bar pinned to bottom (// TODO(m2): review-and-save flow).
+ * 1. Top app bar: exit, title, and undo/redo actions.
+ * 2. Tonal image surface with rectangle-drag overlay and pinch-to-zoom/one-finger-pan.
+ * 3. Clear selection guidance and an accessible feedback field.
+ * 4. Thumb-reachable save action pinned to the bottom.
  *
  * Rectangle interaction: tap-drag-release draws one rectangle.
  * M1 caps at one rectangle; drawing a second replaces the first.
@@ -81,24 +86,18 @@ public fun EditorScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = "Annotate",
-                        style = MaterialTheme.typography.titleLarge,
-                    )
+                    Column {
+                        Text(text = "Review capture", style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            text = if (currentRect == null) "Drag to mark the issue" else "Area marked",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 },
                 navigationIcon = {
-                    // Cancel chip
-                    Surface(
-                        onClick = onCancel,
-                        shape = MaterialTheme.shapes.small,
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        modifier = Modifier.padding(start = 8.dp),
-                    ) {
-                        Text(
-                            text = "Cancel",
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        )
+                    TextButton(onClick = onCancel) {
+                        Text(text = "Cancel")
                     }
                 },
                 actions = {
@@ -118,7 +117,6 @@ public fun EditorScreen(
                         },
                         enabled = state.undoStack.isNotEmpty(),
                     ) {
-                        // ponytail: simple text label instead of a vector icon for M1
                         Text(
                             "↩",
                             style = MaterialTheme.typography.titleMedium,
@@ -147,27 +145,30 @@ public fun EditorScreen(
                             modifier = Modifier.semantics { contentDescription = "Redo" },
                         )
                     }
-                    // Save chip
-                    Surface(
-                        onClick = {
-                            onSave(currentRect, state.feedbackText)
-                        },
-                        shape = MaterialTheme.shapes.small,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(end = 8.dp),
-                    ) {
-                        Text(
-                            text = "Save",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        )
-                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    containerColor = MaterialTheme.colorScheme.surface,
                 ),
             )
+        },
+        bottomBar = {
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 3.dp,
+                modifier = Modifier
+                    .navigationBarsPadding()
+                    .imePadding(),
+            ) {
+                Button(
+                    onClick = { onSave(currentRect, state.feedbackText) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    shape = MaterialTheme.shapes.extraLarge,
+                ) {
+                    Text(text = "Save report")
+                }
+            }
         },
     ) { innerPadding ->
         Column(
@@ -175,24 +176,28 @@ public fun EditorScreen(
                 .fillMaxSize()
                 .padding(innerPadding),
         ) {
-            // Canvas area
-            Box(
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(0.65f)
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center,
+                    .weight(1f)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                tonalElevation = 2.dp,
             ) {
-                Canvas(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .semantics { contentDescription = "Annotation canvas" }
-                        .aspectRatio(
-                            if (state.bitmap != null && state.bitmap.width > 0 && state.bitmap.height > 0)
-                                state.bitmap.width.toFloat() / state.bitmap.height.toFloat()
-                            else 1f
-                        )
-                        .pointerInput(Unit) {
+                Box(contentAlignment = Alignment.Center) {
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp)
+                            .clip(MaterialTheme.shapes.medium)
+                            .semantics { contentDescription = "Annotation canvas" }
+                            .aspectRatio(
+                                if (state.bitmap != null && state.bitmap.width > 0 && state.bitmap.height > 0)
+                                    state.bitmap.width.toFloat() / state.bitmap.height.toFloat()
+                                else 1f
+                            )
+                            .pointerInput(Unit) {
                             awaitPointerEventScope {
                                 while (true) {
                                     val event = awaitPointerEvent()
@@ -280,8 +285,8 @@ public fun EditorScreen(
                                     }
                                 }
                             }
-                        },
-                ) {
+                            },
+                    ) {
                     val canvasWidth = size.width
                     val canvasHeight = size.height
 
@@ -333,49 +338,60 @@ public fun EditorScreen(
                             )
                         }
                     }
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Feedback text field
-            Surface(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                BasicTextField(
-                    value = state.feedbackText,
-                    onValueChange = { text ->
-                        onStateChange(state.copy(feedbackText = text))
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = if (currentRect == null) {
+                        MaterialTheme.colorScheme.surfaceContainerHighest
+                    } else {
+                        MaterialTheme.colorScheme.primaryContainer
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(96.dp)
-                        .padding(12.dp),
-                    textStyle = TextStyle(
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = MaterialTheme.typography.bodyLarge.fontSize,
-                    ),
-                    decorationBox = { innerTextField ->
-                        if (state.feedbackText.isEmpty()) {
-                            Text(
-                                text = "Describe the issue…",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        innerTextField()
-                    },
-                )
+                ) {
+                    Text(
+                        text = if (currentRect == null) "Drag across the problem area" else "Marked area will be included",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (currentRect == null) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    )
+                }
+                if (currentRect != null) {
+                    Text(
+                        text = "Draw again to replace",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
+            OutlinedTextField(
+                value = state.feedbackText,
+                onValueChange = { text ->
+                    onStateChange(state.copy(feedbackText = text))
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .height(112.dp),
+                label = { Text(text = "Feedback (optional)") },
+                placeholder = { Text(text = "What should change on this screen?") },
+                minLines = 3,
+                maxLines = 4,
+            )
             Spacer(modifier = Modifier.height(8.dp))
-
-            // Save bar (pinned bottom)
-            // TODO(m2): replace with full review-and-save flow
         }
     }
 }

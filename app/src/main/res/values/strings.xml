@@ -11,8 +11,10 @@
     <string name="quick_settings_tile_label">Capture feedback</string>
 
     <!-- Draft list -->
-    <string name="draft_list_title">Visual QA</string>
-    <string name="draft_list_empty_hint">Tap + to start a new draft</string>
+    <string name="draft_list_title">Capture a screen</string>
+    <string name="draft_list_empty_hint">Use the Quick Settings tile or S Pen Air Command to capture the screen underneath, then mark the issue.</string>
+    <string name="draft_list_saved_hint">Saved reports will appear here.</string>
+    <string name="capture_screen_action">Capture screen</string>
 
     <!-- Permission disclosure screen -->
     <string name="disclosure_title">Before you start</string>
