@@ -37,6 +37,10 @@ include(":capture:accessibility")
 // M2 modules
 include(":matching")
 
+// M3 modules
+include(":core:privacy")
+include(":core:database")
+
 // Future modules (uncomment when needed):
 // include(":core:bitmap")
 // include(":capture:device")
