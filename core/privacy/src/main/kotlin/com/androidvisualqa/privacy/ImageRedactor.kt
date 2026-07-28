@@ -11,6 +11,9 @@ import javax.imageio.ImageIO
  * Uses pure JVM [BufferedImage] and [ImageIO] — no Android or Skia dependencies.
  * All coordinate math is performed in pixel space after denormalizing the [RedactionRegion]
  * coordinates against the supplied canvas dimensions.
+ *
+ * Caller must pass canvas dimensions equal to the image's pixel dimensions; otherwise
+ * redaction positions will be misaligned.
  */
 class ImageRedactor {
 

@@ -66,7 +66,7 @@ class RetentionWorkerTest {
         dao.upsert(reportEntity("r5", createdAt = T5, draftId = "draft-5"))
         assertEquals(5, dao.count())
 
-        val policy = RetentionPolicy(maxDrafts = 3, maxDays = 365, minFreeBytes = 0)
+        val policy = RetentionPolicy(maxDrafts = 3, maxDays = 365)
         val result = deleteExcessReports(dao, draftStore, policy, freeBytes = Long.MAX_VALUE)
         assertTrue(result)
 
@@ -87,12 +87,32 @@ class RetentionWorkerTest {
         dao.upsert(reportEntity("r2", createdAt = T2, draftId = "draft-2"))
         assertEquals(2, dao.count())
 
-        val policy = RetentionPolicy(maxDrafts = 10, maxDays = 365, minFreeBytes = 0)
+        val policy = RetentionPolicy(maxDrafts = 10, maxDays = 365)
         val result = deleteExcessReports(dao, draftStore, policy, freeBytes = Long.MAX_VALUE)
         assertTrue(result)
 
         assertEquals(2, dao.count())
         assertTrue(draftStore.deletedDraftIds.isEmpty())
+    }
+
+    @Test
+    fun workerDeletesOldestWhenDiskIsLow() = runBlocking {
+        dao.upsert(reportEntity("r1", createdAt = T1, draftId = "draft-1"))
+        dao.upsert(reportEntity("r2", createdAt = T2, draftId = "draft-2"))
+        dao.upsert(reportEntity("r3", createdAt = T3, draftId = "draft-3"))
+        dao.upsert(reportEntity("r4", createdAt = T4, draftId = "draft-4"))
+        dao.upsert(reportEntity("r5", createdAt = T5, draftId = "draft-5"))
+        assertEquals(5, dao.count())
+
+        // Pass freeBytes well below the 500 MB threshold to trigger low-disk guard
+        val policy = RetentionPolicy(maxDrafts = 100, maxDays = 365)
+        val result = deleteExcessReports(dao, draftStore, policy, freeBytes = 10 * 1024 * 1024)
+        assertTrue(result)
+
+        // Low-disk guard deletes oldest-first until empty (free space never recovers
+        // because we pass a fixed low freeBytes value — all 5 should be deleted)
+        assertEquals(0, dao.count())
+        assertTrue(draftStore.deletedDraftIds.containsAll(listOf("draft-1", "draft-2", "draft-3", "draft-4", "draft-5")))
     }
 
     @Test
@@ -106,19 +126,33 @@ class RetentionWorkerTest {
         dao: ReportDao,
         store: DraftStore,
         retentionPolicy: RetentionPolicy,
-        freeBytes: Long,
+        freeBytes: Long = Long.MAX_VALUE,
     ): Boolean {
         var totalCount = dao.count()
         if (totalCount == 0) return true
 
+        val minFreeBytes = 500L * 1024 * 1024 // 500 MB
+
         while (true) {
+            // Low-disk guard: delete oldest one-at-a-time until space is recovered
+            if (freeBytes < minFreeBytes) {
+                val allReports = dao.listAll().sortedBy { it.createdAt }
+                val oldest = allReports.firstOrNull() ?: return true
+                if (oldest.draftId != null) store.deleteDraft(DraftId(oldest.draftId))
+                dao.deleteById(oldest.reportId)
+                totalCount = dao.count()
+                // With synthetic freeBytes the value never recovers, so keep deleting
+                if (totalCount == 0) return true
+                continue
+            }
+
             val allReports = dao.listAll()
             if (allReports.isEmpty()) break
 
             val oldestCreatedAt = allReports.minOf { it.createdAt }
 
             val toDelete = allReports.filter { candidate ->
-                retentionPolicy.shouldDelete(candidate, totalCount, oldestCreatedAt, freeBytes)
+                retentionPolicy.shouldDelete(candidate, totalCount, oldestCreatedAt)
             }
 
             if (toDelete.isEmpty()) break

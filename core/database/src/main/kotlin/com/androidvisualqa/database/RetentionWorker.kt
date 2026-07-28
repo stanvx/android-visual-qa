@@ -39,8 +39,7 @@ class RetentionWorker(
     override suspend fun doWork(): Result {
         return try {
             val dao = database.reports()
-            val freeBytes = freeBytesOverride ?: freeDiskBytes(applicationContext.filesDir.absolutePath)
-            deleteExcessReports(dao, draftStore, policy, freeBytes)
+            deleteExcessReports(dao, draftStore, policy)
         } catch (e: Exception) {
             if (isRetryable(e)) Result.retry() else Result.failure()
         }
@@ -49,24 +48,42 @@ class RetentionWorker(
     /**
      * Deletes reports until the retention policy is satisfied.
      * Exposed as internal for direct testing without WorkManager lifecycle.
+     *
+     * Low-disk guard: if free disk space falls below [policy.minFreeBytes],
+     * the worker deletes the oldest report one at a time, rechecking free
+     * space after each deletion, until space is recovered or the store is empty.
      */
     internal suspend fun deleteExcessReports(
         dao: ReportDao,
         store: DraftStore,
         retentionPolicy: RetentionPolicy,
-        freeBytes: Long = Long.MAX_VALUE,
+        freeBytes: Long = freeDiskBytes(applicationContext.filesDir.absolutePath),
     ): Result {
         var totalCount = dao.count()
         if (totalCount == 0) return Result.success()
 
+        val minFreeBytes = 500L * 1024 * 1024 // 500 MB
+
         while (true) {
+            // Low-disk guard: delete oldest one-at-a-time until space is recovered
+            if (freeBytes < minFreeBytes) {
+                val allReports = dao.listAll().sortedBy { it.createdAt }
+                val oldest = allReports.firstOrNull() ?: return Result.success()
+                if (oldest.draftId != null) store.deleteDraft(DraftId(oldest.draftId))
+                dao.deleteById(oldest.reportId)
+                totalCount = dao.count()
+                val newFree = freeDiskBytes(applicationContext.filesDir.absolutePath)
+                if (newFree >= minFreeBytes || totalCount == 0) return Result.success()
+                continue
+            }
+
             val allReports = dao.listAll()
             if (allReports.isEmpty()) break
 
             val oldestCreatedAt = allReports.minOf { it.createdAt }
 
             val toDelete = allReports.filter { candidate ->
-                retentionPolicy.shouldDelete(candidate, totalCount, oldestCreatedAt, freeBytes)
+                retentionPolicy.shouldDelete(candidate, totalCount, oldestCreatedAt)
             }
 
             if (toDelete.isEmpty()) break

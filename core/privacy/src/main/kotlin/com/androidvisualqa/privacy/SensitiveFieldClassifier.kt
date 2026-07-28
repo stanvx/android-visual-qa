@@ -8,6 +8,9 @@ import com.androidvisualqa.model.capture.NodeSnapshot
  * This is a v1 rule-based classifier. Future milestones (M4+) may replace or augment
  * the heuristics with ML-based classification.
  *
+ * False-positive risks: the API key pattern matches any 32+ alphanumeric token (including
+ * non-secret IDs). v1 accepts this; M4 ML classification should narrow it.
+ *
  * ## Node classification heuristics
  *
  * 1. `isPassword == true` → [Sensitivity.Credentials].

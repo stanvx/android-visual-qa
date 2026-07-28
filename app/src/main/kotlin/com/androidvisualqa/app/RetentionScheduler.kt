@@ -5,7 +5,6 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.androidvisualqa.database.RetentionConfig
-import com.androidvisualqa.database.RetentionPolicy
 import com.androidvisualqa.database.RetentionWorker
 import java.util.concurrent.TimeUnit
 
@@ -26,9 +25,9 @@ public class RetentionScheduler(private val context: Context) {
      * on every app launch after the first.
      *
      * @param config Retention configuration. Defaults to [RetentionConfig] with
-     *   a default [RetentionPolicy].
+     *   the default work name.
      */
-    public fun schedule(config: RetentionConfig = RetentionConfig(RetentionPolicy())) {
+    public fun schedule(config: RetentionConfig = RetentionConfig()) {
         val request = PeriodicWorkRequestBuilder<RetentionWorker>(1, TimeUnit.DAYS).build()
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             config.workName,
@@ -42,7 +41,7 @@ public class RetentionScheduler(private val context: Context) {
      *
      * @param config Retention configuration matching the scheduled work.
      */
-    public fun cancel(config: RetentionConfig = RetentionConfig(RetentionPolicy())) {
+    public fun cancel(config: RetentionConfig = RetentionConfig()) {
         WorkManager.getInstance(context).cancelUniqueWork(config.workName)
     }
 }

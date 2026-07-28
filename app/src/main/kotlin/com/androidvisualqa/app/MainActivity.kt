@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -32,7 +33,6 @@ import com.androidvisualqa.annotation.EditorViewModel
 import com.androidvisualqa.annotation.RectangleAnnotation
 import com.androidvisualqa.database.ReportDatabase
 import com.androidvisualqa.database.RetentionConfig
-import com.androidvisualqa.database.RetentionPolicy
 import com.androidvisualqa.files.DraftDirectory
 import com.androidvisualqa.files.FileSystemDraftStore
 import com.androidvisualqa.geometry.Bounds
@@ -64,7 +64,7 @@ public class MainActivity : ComponentActivity() {
 
         // Schedule retention cleanup once per day
         RetentionScheduler(applicationContext).schedule(
-            RetentionConfig(policy = RetentionPolicy()),
+            RetentionConfig(),
         )
 
         setContent {
@@ -139,53 +139,6 @@ private fun AppNavigation(
     }
 }
 
-@Composable
-private fun AppNavigation(applicationContext: Context) {
-    val navController = rememberNavController()
-    val draftStore = remember {
-        FileSystemDraftStore(
-            DraftDirectory(
-                applicationContext.getDir("drafts", Context.MODE_PRIVATE).toPath(),
-            ),
-        )
-    }
-    val reportHistory = remember {
-        val file = File(applicationContext.filesDir, "report_history.jsonl")
-        FileSystemReportHistoryIndex(file.toPath())
-    }
-
-    NavHost(
-        navController = navController,
-        startDestination = "drafts",
-    ) {
-        composable("drafts") {
-            DraftListScreen(
-                onNewDraft = { navController.navigate("editor/new") },
-                onOpenDraft = { draftId -> navController.navigate("editor/$draftId") },
-            )
-        }
-        composable(
-            route = "editor/{draftId}",
-            arguments = listOf(navArgument("draftId") { type = NavType.StringType }),
-        ) { backStackEntry ->
-            val draftId = backStackEntry.arguments?.getString("draftId")
-            val viewModel: EditorViewModel = viewModel()
-            EditorScreenWrapper(
-                viewModel = viewModel,
-                draftId = if (draftId == "new") null else draftId,
-                onSave = { rect, text ->
-                    // TODO(m2): wire matching + report after editor save
-                    // Current: navigate back. The full chain needs the
-                    // accessibility node tree from the original capture,
-                    // which is not yet passed through the editor route.
-                    navController.popBackStack()
-                },
-                onCancel = { navController.popBackStack() },
-            )
-        }
-    }
-}
-
 /**
  * Draft list screen with a FAB to start a new draft.
  *
@@ -213,11 +166,11 @@ private fun DraftListScreen(
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = "Visual QA",
+                    text = stringResource(R.string.draft_list_title),
                     style = MaterialTheme.typography.headlineMedium,
                 )
                 Text(
-                    text = "Tap + to start a new draft",
+                    text = stringResource(R.string.draft_list_empty_hint),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(top = 8.dp),
                 )

@@ -40,8 +40,8 @@ class AutomaticRedactionSuggesterTest {
         )
         val feedback = "my email is a@b.com"
 
-        val first = suggester.suggest(nodes, feedback)
-        val second = suggester.suggest(nodes, feedback)
+        val first = suggester.suggest(nodes, feedback, canvasWidth = 1080, canvasHeight = 1920)
+        val second = suggester.suggest(nodes, feedback, canvasWidth = 1080, canvasHeight = 1920)
 
         assertEquals(first, second)
     }
@@ -58,7 +58,7 @@ class AutomaticRedactionSuggesterTest {
             )
         )
         val feedback = "This is fine."
-        val suggestions = suggester.suggest(nodes, feedback)
+        val suggestions = suggester.suggest(nodes, feedback, canvasWidth = 1080, canvasHeight = 1920)
         assertEquals(0, suggestions.size)
     }
 }

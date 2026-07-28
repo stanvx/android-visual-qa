@@ -36,8 +36,8 @@ class AutomaticRedactionSuggester(
     fun suggest(
         nodes: List<NodeSnapshot>,
         feedback: String,
-        canvasWidth: Int = 1080,
-        canvasHeight: Int = 1920,
+        canvasWidth: Int,
+        canvasHeight: Int,
     ): List<RedactionRegion> {
         val regions = mutableListOf<RedactionRegion>()
 
