@@ -1,13 +1,41 @@
 package com.androidvisualqa.app.trigger
 
+import android.content.Intent
+import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import com.androidvisualqa.app.CaptureForegroundService
 
 /**
- * Quick Settings tile launcher for starting a visual feedback capture.
+ * Quick Settings tile that launches [CaptureForegroundService] on tap.
  *
- * // TODO(m2): implement onTileAdded()/onStartListening() to wire CaptureCommand.Trigger
- * // via the state machine. This stub is the manifest entry only.
+ * Lifecycle:
+ * 1. User adds tile to Quick Settings → [onTileAdded]
+ * 2. Tile visible → [onStartListening] — updates subtitle to "Ready"
+ * 3. User taps → [onClick] — starts [CaptureForegroundService]
+ * 4. Tile hidden → [onStopListening]
  */
 public class QuickSettingsTile : TileService() {
-    // M2: dispatch CaptureCommand.Trigger(TriggerSource.QuickSettingsTile) on onStartListening()
+
+    override fun onStartListening() {
+        super.onStartListening()
+        qsTile?.let { tile ->
+            tile.subtitle = "Ready"
+            tile.state = Tile.STATE_ACTIVE
+            tile.updateTile()
+        }
+    }
+
+    override fun onStopListening() {
+        super.onStopListening()
+        qsTile?.let { tile ->
+            tile.subtitle = ""
+            tile.updateTile()
+        }
+    }
+
+    override fun onClick() {
+        super.onClick()
+        val intent = Intent(this, CaptureForegroundService::class.java)
+        startForegroundService(intent)
+    }
 }

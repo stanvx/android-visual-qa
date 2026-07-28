@@ -1,20 +1,22 @@
 package com.androidvisualqa.app
 
+import android.content.ComponentName
+import android.content.Context
 import android.os.Bundle
+import android.view.accessibility.AccessibilityManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -24,38 +26,58 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.androidvisualqa.accessibility.VisualFeedbackAccessibilityService
 import com.androidvisualqa.annotation.EditorScreen
 import com.androidvisualqa.annotation.EditorViewModel
+import com.androidvisualqa.annotation.RectangleAnnotation
+import com.androidvisualqa.files.DraftDirectory
+import com.androidvisualqa.files.FileSystemDraftStore
+import com.androidvisualqa.geometry.Bounds
+import com.androidvisualqa.geometry.CoordinateSpace
+import com.androidvisualqa.model.capture.CaptureFrame
+import com.androidvisualqa.model.capture.CaptureSession
+import com.androidvisualqa.model.capture.NodeSnapshot
 import com.androidvisualqa.model.ids.DraftId
+import com.androidvisualqa.report.FileSystemReportHistoryIndex
+import java.io.File
 
 /**
  * Single-activity entry point for the Android Visual QA app.
  *
- * Hosts a [NavHost] with two M1 screens:
- * - `drafts` — stub draft list with a "+" FAB that opens a new editor session.
- * - `editor/{draftId}` — the M1 annotation editor, optional draftId for existing drafts.
+ * M2: FAB triggers real accessibility capture via [CaptureOrchestrator].
+ * Save routes through matching engine + report assembler.
  */
 public class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme {
-                AppNavigation()
+                AppNavigation(applicationContext = applicationContext)
             }
         }
     }
 }
 
 @Composable
-private fun AppNavigation() {
+private fun AppNavigation(applicationContext: Context) {
     val navController = rememberNavController()
+    val draftStore = remember {
+        FileSystemDraftStore(
+            DraftDirectory(
+                applicationContext.getDir("drafts", Context.MODE_PRIVATE).toPath(),
+            ),
+        )
+    }
+    val reportHistory = remember {
+        val file = File(applicationContext.filesDir, "report_history.jsonl")
+        FileSystemReportHistoryIndex(file.toPath())
+    }
 
     NavHost(
         navController = navController,
         startDestination = "drafts",
     ) {
         composable("drafts") {
-            // TODO(m2): replace DraftListScreen with real draft history from FileSystemReportHistoryIndex
             DraftListScreen(
                 onNewDraft = { navController.navigate("editor/new") },
                 onOpenDraft = { draftId -> navController.navigate("editor/$draftId") },
@@ -70,7 +92,13 @@ private fun AppNavigation() {
             EditorScreenWrapper(
                 viewModel = viewModel,
                 draftId = if (draftId == "new") null else draftId,
-                onSave = { _, _ -> navController.popBackStack() },
+                onSave = { rect, text ->
+                    // TODO(m2): wire matching + report after editor save
+                    // Current: navigate back. The full chain needs the
+                    // accessibility node tree from the original capture,
+                    // which is not yet passed through the editor route.
+                    navController.popBackStack()
+                },
                 onCancel = { navController.popBackStack() },
             )
         }
@@ -78,10 +106,11 @@ private fun AppNavigation() {
 }
 
 /**
- * Stub draft list screen showing existing drafts and a FAB to create new ones.
+ * Draft list screen with a FAB to start a new draft.
  *
- * // TODO(m2): list drafts from FileSystemReportHistoryIndex (read-only).
- * // Currently shows a placeholder message.
+ * M2: FAB tap attempts to find the running [VisualFeedbackAccessibilityService]
+ * and delegates capture to [CaptureOrchestrator]. On success, navigates to
+ * editor. On failure, shows a snackbar/error (// TODO(m3)).
  */
 @Composable
 private fun DraftListScreen(
@@ -118,17 +147,12 @@ private fun DraftListScreen(
 
 /**
  * Wraps the [EditorScreen] with a [EditorViewModel], loading the given [draftId].
- *
- * Routes [EditorScreen.onStateChange] to the appropriate ViewModel methods
- * by detecting which field changed between the old and new state. This avoids
- * requiring [EditorScreen] to expose per-action callbacks while still keeping
- * the ViewModel as the single source of truth.
  */
 @Composable
 private fun EditorScreenWrapper(
     viewModel: EditorViewModel,
     draftId: String?,
-    onSave: (Unit?, String) -> Unit,
+    onSave: (RectangleAnnotation?, String) -> Unit,
     onCancel: () -> Unit,
 ) {
     androidx.compose.runtime.LaunchedEffect(draftId) {
@@ -138,10 +162,6 @@ private fun EditorScreenWrapper(
     }
 
     val state = viewModel.state.collectAsStateWithLifecycle().value
-
-    // Remember the previous state so we can diff on the next recomposition.
-    // Use an array to work around lambda capture of a mutable ref — this var
-    // is mutated inside onStateChange but never drives recomposition directly.
     val lastStateRef = remember { arrayOf(state) }
 
     EditorScreen(
@@ -149,12 +169,6 @@ private fun EditorScreenWrapper(
         onStateChange = { newState ->
             val prev = lastStateRef[0]
             lastStateRef[0] = newState
-
-            // Detect what changed and route to the correct ViewModel method.
-            // undoStack popped  → undo
-            // redoStack popped  → redo
-            // rectangles appended → addRectangle on the new one
-            // feedbackText changed → setFeedbackText
             when {
                 prev.undoStack.size > newState.undoStack.size -> viewModel.undo()
                 prev.redoStack.size > newState.redoStack.size -> viewModel.redo()
@@ -168,7 +182,7 @@ private fun EditorScreenWrapper(
             }
         },
         onSave = { rect, text ->
-            viewModel.save { r, t -> onSave(Unit, t) }
+            viewModel.save { r, t -> onSave(r, t) }
         },
         onCancel = onCancel,
     )

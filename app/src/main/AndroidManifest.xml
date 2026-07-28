@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- TODO(m2): request at runtime after service is configured -->
     <uses-permission android:name="android.permission.BIND_ACCESSIBILITY_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- dataSync: M2 uses accessibility capture (not media projection). Change
+         to mediaProjection or specialUse if a future lane switches to
+         MediaProjectionManager for the capture source. -->
 
     <application
         android:label="Android Visual QA"
@@ -20,7 +22,6 @@
             </intent-filter>
         </activity>
 
-        <!-- TODO(m2): wire real TileService -->
         <service
             android:name=".trigger.QuickSettingsTile"
             android:label="Capture feedback"
@@ -31,9 +32,10 @@
             </intent-filter>
         </service>
 
-        <!-- TODO(m2): wire real AccessibilityService -->
+        <!-- M2 bridge: registers the service instance into AppServiceRegistry.
+             In M3, replace with proper DI or binding. -->
         <service
-            android:name=".accessibility.VisualFeedbackAccessibilityService"
+            android:name=".BridgeAccessibilityService"
             android:exported="true"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
@@ -43,5 +45,11 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility_service_config" />
         </service>
+
+        <!-- M2 foreground service that owns the capture → draft → editor flow. -->
+        <service
+            android:name=".CaptureForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
     </application>
 </manifest>

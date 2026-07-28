@@ -41,6 +41,8 @@ dependencies {
     implementation(project(":core:geometry"))
     implementation(project(":capture:api"))
     implementation(project(":capture:pixels"))
+    implementation(project(":capture:accessibility"))
+    implementation(project(":matching"))
     implementation(project(":report"))
     implementation(project(":core:files"))
 
@@ -59,6 +61,8 @@ dependencies {
 
     // Tests
     testImplementation(libs.junit.jupiter)
+    testImplementation(libs.kotlinx.coroutines.test)
+    implementation(libs.kotlinx.datetime)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

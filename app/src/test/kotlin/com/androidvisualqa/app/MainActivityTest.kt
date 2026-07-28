@@ -1,7 +1,8 @@
 package com.androidvisualqa.app
 
-import com.androidvisualqa.app.accessibility.VisualFeedbackAccessibilityService
+import com.androidvisualqa.accessibility.VisualFeedbackAccessibilityService
 import com.androidvisualqa.app.trigger.QuickSettingsTile
+import com.androidvisualqa.model.ids.DraftId
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
