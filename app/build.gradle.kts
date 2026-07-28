@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.androidx.baselineprofile)
 }
 
 android {
@@ -40,15 +41,15 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // ponytail: debug keystore as placeholder; M6 Enterprise ships with a real release keystore
-            signingConfig = signingConfigs.getByName("debug")
+            // TODO(m6-final): wire real release keystore via CI secrets.
+            // signingConfig = signingConfigs.getByName("release")
         }
     }
 
-    // ponytail: automaticGenerationDuringBuild is set by Lane U (:benchmark) when the
-    // androidx.benchmark.baseline-profile Gradle plugin is applied.  The placeholder
-    // baseline-prof.txt at src/main/ exists so the build won't fail when the
-    // baseline-profile plugin reads it.
+    // The baseline-prof.txt at src/main/ is auto-discovered by AGP.
+    // Lane U's :benchmark module uses the androidx.baselineprofile plugin
+    // to generate an updated profile that overlays this placeholder in CI.
+    // TODO(m6-final): wire :benchmark generated profile via baselineProfile { from(...) }
 
     testOptions {
         unitTests.isReturnDefaultValues = true

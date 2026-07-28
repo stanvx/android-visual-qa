@@ -133,7 +133,7 @@ sbom = {
             "type": "application",
             "name": "android-visual-qa",
             "version": "0.1.0",
-            "purl": "pkg:github/stanvx/android-visual-qa@0.1.0",
+            "purl": f"pkg:github/{os.environ.get('GITHUB_REPOSITORY', 'stanvx/android-visual-qa')}@0.1.0",
         },
     },
     "components": components,
@@ -154,6 +154,11 @@ echo "✓ SBOM written: $SBOM_FILE"
 # Step 3 — Validate the SBOM is valid JSON
 # ---------------------------------------------------------------------------
 python3 -m json.tool "$SBOM_FILE" > /dev/null && echo "✓ SBOM JSON is valid"
+
+# ---------------------------------------------------------------------------
+# Cleanup — remove temporary dependency dump
+# ---------------------------------------------------------------------------
+rm -f "$DEPS_FILE"
 
 echo ""
 echo "Done."

@@ -14,7 +14,7 @@ CI via the `:benchmark` module (Lane U) using Jetpack Macrobenchmark.
 | Tap to editor | < 800 ms | `MacrobenchmarkRule.measureRepeated("tapToEditor")` | Blocking | P0 |
 | Stylus frame time | < 16 ms (60 fps) | `FrameTimingMetric` on editor activity | Warning | P1 |
 | Large-tree matching | < 200 ms | `StartupTimingMetric` on match engine | Blocking | P0 |
-| Save capture | < 1 s | `MacrobenchmarkRule.measureRepeated("saveCapture")` | Blocking | P0 |
+| Save capture | < 750 ms | `MacrobenchmarkRule.measureRepeated("saveCapture")` | Blocking | P0 |
 | History scroll | < 16 ms | `FrameTimingMetric` on history list | Warning | P1 |
 | Export share sheet | < 500 ms | `MacrobenchmarkRule.measureRepeated("exportShare")` | Warning | P1 |
 
@@ -95,7 +95,7 @@ From pressing "Save" in the editor to the confirmation toast appearing.
 Includes: JSONL serialisation of the report, writing the screenshot (WebP),
 and inserting the database record.
 
-**Bound:** 1 second.
+**Bound:** 750 ms (plan §17).  The benchmark asserts under 1 000 ms to allow margin for larger payloads.
 
 ### History Scroll (`historyScroll`)
 
@@ -124,7 +124,7 @@ Blocking gates are:
 - `coldStartup` > 1.5 s
 - `tapToEditor` > 800 ms
 - `largeTreeMatching` > 200 ms
-- `saveCapture` > 1 s
+- `saveCapture` > 750 ms
 
 ---
 
