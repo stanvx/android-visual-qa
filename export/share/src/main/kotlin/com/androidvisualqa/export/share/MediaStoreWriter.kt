@@ -3,24 +3,16 @@ package com.androidvisualqa.export.share
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
-import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
-import com.androidvisualqa.model.VisualFeedbackReport
 
 /**
  * Saves files to the public Downloads directory via MediaStore (API 29+).
- *
- * ## API 29+ (preferred)
  *
  * Writes using [MediaStore.Downloads.EXTERNAL_CONTENT_URI] with the
  * `IS_PENDING` pattern — set `IS_PENDING = 1` on insert, write the bytes,
  * then set `IS_PENDING = 0` to finalise. No storage permissions needed
  * on API 29+.
- *
- * ## API < 29 (fallback)
- *
- * Writes directly to [Environment.getExternalStoragePublicDirectory].
  *
  * @param context Application [Context] for the [ContentResolver].
  */
@@ -31,13 +23,11 @@ public class MediaStoreWriter(private val context: Context) {
      *
      * The filename is derived from the report ID: `{reportId}.zip`.
      *
-     * @param report   The report metadata (used for display name).
      * @param zipBytes Raw ZIP bytes.
      * @param filename Output filename (e.g. `"report-001.zip"`).
      * @return [Result.success] with the content URI, or [Result.failure].
      */
     public suspend fun saveZipToDownloads(
-        report: VisualFeedbackReport,
         zipBytes: ByteArray,
         filename: String,
     ): Result<Uri> = saveFileToDownloads(

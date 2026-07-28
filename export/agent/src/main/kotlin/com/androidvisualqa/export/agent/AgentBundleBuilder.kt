@@ -116,9 +116,9 @@ class AgentBundleBuilder(
      * the enrichment pipeline in M6+ provides a flat snapshot list this will
      * hydrate fully.  For now, return empty — the bundle contract is sound.
      */
+    // TODO(m6): hydrate SdkComponentSnapshot from the report once the
+    // enrichment pipeline provides a flat top-level snapshot list.
     private fun buildSdkComponents(report: VisualFeedbackReport): List<AgentSdkComponent> {
-        @Suppress("UNUSED_EXPRESSION")
-        report.frame  // acknowledge parameter; future hydration point
         return emptyList()
     }
 

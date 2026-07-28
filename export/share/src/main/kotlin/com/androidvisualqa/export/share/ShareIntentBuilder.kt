@@ -2,7 +2,6 @@ package com.androidvisualqa.export.share
 
 import android.content.Intent
 import android.net.Uri
-import androidx.core.content.IntentCompat
 
 /**
  * Pure-JVM helper for building share and preview intents.
@@ -16,8 +15,9 @@ public object ShareIntentBuilder {
      * Builds an [Intent.ACTION_SEND] intent suitable for a share sheet.
      *
      * The [uri] is placed as [Intent.EXTRA_STREAM] and the mime type is set
-     * on the intent. [Intent.FLAG_GRANT_READ_URI_PERMISSION] is applied via
-     * [IntentCompat] (on API 30+) or directly on older platforms.
+     * on the intent. FLAG_GRANT_READ_URI_PERMISSION is set directly via
+     * addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION); no IntentCompat needed
+     * since minSdk=30 supports direct flag setting.
      *
      * @param uri      The content URI to share.
      * @param mimeType MIME type for the content (default `"application/zip"`).

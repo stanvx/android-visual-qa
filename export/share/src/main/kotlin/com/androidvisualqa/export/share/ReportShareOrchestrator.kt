@@ -77,7 +77,7 @@ public class ReportShareOrchestrator(
 
             val zipBytes = Files.readAllBytes(zipPath)
             val filename = "${report.reportId.value}.zip"
-            mediaStoreWriter.saveZipToDownloads(report, zipBytes, filename).getOrThrow()
+            mediaStoreWriter.saveZipToDownloads(zipBytes, filename).getOrThrow()
         } finally {
             tempDir.toFile().deleteRecursively()
         }

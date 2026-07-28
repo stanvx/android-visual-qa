@@ -82,6 +82,8 @@ public fun ExportSheet(
                 Text(context.getString(R.string.export_save_downloads))
             }
 
+            Spacer(modifier = Modifier.height(12.dp))
+
             Button(
                 onClick = {
                     onExportAgentBundle()

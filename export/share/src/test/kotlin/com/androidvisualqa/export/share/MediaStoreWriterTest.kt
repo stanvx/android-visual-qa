@@ -35,7 +35,7 @@ class MediaStoreWriterTest {
     @Test
     fun `saveZipToDownloads writes a ZIP and returns a non-null URI`() = runBlocking {
         val zipBytes = "fake-zip-content".toByteArray()
-        val result = writer.saveZipToDownloads(report, zipBytes, "test-report.zip")
+        val result = writer.saveZipToDownloads(zipBytes, "test-report.zip")
 
         assertTrue(result.isSuccess)
         val uri = result.getOrThrow()
@@ -56,7 +56,7 @@ class MediaStoreWriterTest {
 
     @Test
     fun `saveZipToDownloads with empty bytes produces valid URI`() = runBlocking {
-        val result = writer.saveZipToDownloads(report, ByteArray(0), "empty.zip")
+        val result = writer.saveZipToDownloads(ByteArray(0), "empty.zip")
 
         assertTrue(result.isSuccess)
         assertNotNull(result.getOrThrow())

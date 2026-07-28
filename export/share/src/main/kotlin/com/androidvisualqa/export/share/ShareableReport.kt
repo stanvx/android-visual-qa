@@ -1,7 +1,6 @@
 package com.androidvisualqa.export.share
 
 import com.androidvisualqa.model.VisualFeedbackReport
-import java.util.Arrays
 
 /**
  * Pure data class holding a report and its pre-built binary artifacts.
