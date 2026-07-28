@@ -56,7 +56,7 @@ public class CaptureForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val notification = buildNotification()
         startForeground(NOTIFICATION_ID, notification)
-        startCaptureSequence()
+        startCaptureSequence(intent)
         return START_NOT_STICKY
     }
 
@@ -69,7 +69,7 @@ public class CaptureForegroundService : Service() {
 
     // ─── Private helpers ─────────────────────────────────────────────────
 
-    private fun startCaptureSequence() {
+    private fun startCaptureSequence(intent: Intent?) {
         val draftStore = FileSystemDraftStore(
             DraftDirectory(
                 getDir("drafts", Context.MODE_PRIVATE).toPath(),
@@ -80,9 +80,15 @@ public class CaptureForegroundService : Service() {
         )
 
         serviceScope.launch {
+            val autoOpenEditor = intent?.getBooleanExtra(EXTRA_AUTO_OPEN_EDITOR, false) == true
             val draftIdResult = performCapture(draftStore, reportHistory)
             draftIdResult.fold(
-                onSuccess = { draftId -> postSuccessNotification(draftId) },
+                onSuccess = { draftId ->
+                    postSuccessNotification(draftId)
+                    if (autoOpenEditor) {
+                        openEditor(draftId)
+                    }
+                },
                 onFailure = { error -> postErrorNotification(error) },
             )
             stopSelf()
@@ -96,14 +102,9 @@ public class CaptureForegroundService : Service() {
         val service = findAccessibilityService()
             ?: return Result.failure(IllegalStateException("Accessibility service not running"))
 
-        val activeRoot = service.rootInActiveWindow
-        val windowId = service.activeWindowId()
-            ?: activeRoot?.windowId?.toLong()
-            ?: return Result.failure(IllegalStateException("No active accessibility window"))
-
-        if (windowId == 0L) {
-            return Result.failure(IllegalStateException("No active app window (home/recents?)"))
-        }
+        val target = resolveTargetWindow(service)
+            ?: return Result.failure(IllegalStateException("No external app window available"))
+        val windowId = target.windowId
 
         val capturedFrame = service.takeWindowScreenshot(windowId)
             ?: return Result.failure(IllegalStateException("Window screenshot returned null"))
@@ -111,8 +112,7 @@ public class CaptureForegroundService : Service() {
             return Result.failure(IllegalStateException("Window screenshot contained no pixels"))
         }
 
-        val pkgName = activeRoot?.packageName?.toString() ?: "unknown"
-        activeRoot?.recycle()
+        val pkgName = target.packageName
         val tree = AccessibilityCaptureModule { service }.snapshotTree(windowId)
         val screenBounds = service.windows
             ?.firstOrNull { it.id.toLong() == windowId }
@@ -145,6 +145,46 @@ public class CaptureForegroundService : Service() {
             reportHistory = reportHistory,
         )
     }
+
+    private fun resolveTargetWindow(
+        service: VisualFeedbackAccessibilityService,
+    ): TargetWindow? {
+        val windows = service.windows.orEmpty()
+        val byId = windows.associateBy { it.id.toLong() }
+        val candidates = buildList {
+            service.previousWindowId()?.let(::add)
+            service.activeWindowId()?.let(::add)
+            windows.filter { it.isActive }.mapTo(this) { it.id.toLong() }
+            windows.filter { it.isFocused }.mapTo(this) { it.id.toLong() }
+            windows.mapTo(this) { it.id.toLong() }
+        }.distinct()
+
+        return candidates.asSequence()
+            .mapNotNull { id -> byId[id] }
+            .mapNotNull { window ->
+                val root = window.root
+                val pkg = try {
+                    root?.packageName?.toString()
+                } finally {
+                    root?.recycle()
+                } ?: return@mapNotNull null
+                if (pkg == this@CaptureForegroundService.packageName ||
+                    pkg == "android" ||
+                    pkg == "com.android.systemui" ||
+                    pkg.startsWith("com.samsung.android.service.aircommand")
+                ) {
+                    null
+                } else {
+                    TargetWindow(window.id.toLong(), pkg)
+                }
+            }
+            .firstOrNull()
+    }
+
+    private data class TargetWindow(
+        val windowId: Long,
+        val packageName: String,
+    )
 
     private suspend fun findAccessibilityService(): VisualFeedbackAccessibilityService? {
         // ponytail: registry may not be set yet if the foreground service starts
@@ -189,6 +229,15 @@ public class CaptureForegroundService : Service() {
         nm.notify(RESULT_NOTIFICATION_ID, notification)
     }
 
+    private fun openEditor(draftId: DraftId) {
+        startActivity(
+            Intent(this, MainActivity::class.java).apply {
+                putExtra(EXTRA_DRAFT_ID, draftId.value)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            },
+        )
+    }
+
     private fun buildNotification(): Notification {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val channel = NotificationChannel(
@@ -208,6 +257,8 @@ public class CaptureForegroundService : Service() {
 
     internal companion object {
         internal const val CHANNEL_ID: String = "capture_foreground"
+        internal const val EXTRA_DRAFT_ID: String = "draftId"
+        internal const val EXTRA_AUTO_OPEN_EDITOR: String = "autoOpenEditor"
         private const val NOTIFICATION_ID: Int = 1001
         private const val RESULT_NOTIFICATION_ID: Int = 1002
     }

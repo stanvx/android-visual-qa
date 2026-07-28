@@ -50,6 +50,7 @@ public open class VisualFeedbackAccessibilityService : AccessibilityService() {
     /** Last [AccessibilityEvent.getWindowId] from a
      * [AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED] event, or `null`. */
     private var lastActiveWindowId: Long? = null
+    private var previousActiveWindowId: Long? = null
 
     // ─── Service lifecycle ──────────────────────────────────────────────
 
@@ -90,7 +91,11 @@ public open class VisualFeedbackAccessibilityService : AccessibilityService() {
             // environments.
             try {
                 if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-                    lastActiveWindowId = event.windowId.toLong()
+                    val eventWindowId = event.windowId.toLong()
+                    if (lastActiveWindowId != null && eventWindowId != lastActiveWindowId) {
+                        previousActiveWindowId = lastActiveWindowId
+                    }
+                    lastActiveWindowId = eventWindowId
                 }
             } catch (_: RuntimeException) {
                 // Ignore on JVM test stubs
@@ -188,6 +193,9 @@ public open class VisualFeedbackAccessibilityService : AccessibilityService() {
      * [AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED] source, or `null`.
      */
     public open fun activeWindowId(): Long? = lastActiveWindowId
+
+    /** Returns the window that was active immediately before the current one. */
+    public open fun previousWindowId(): Long? = previousActiveWindowId
 
     /**
      * Helper to create a [TakeScreenshotCallback] from lambdas.

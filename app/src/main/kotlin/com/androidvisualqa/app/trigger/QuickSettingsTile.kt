@@ -4,7 +4,7 @@ import android.content.Intent
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import com.androidvisualqa.app.AppServiceRegistry
-import com.androidvisualqa.app.CaptureForegroundService
+import com.androidvisualqa.app.CaptureLaunchActivity
 
 /**
  * Quick Settings tile that launches [CaptureForegroundService] on tap.
@@ -41,7 +41,6 @@ public class QuickSettingsTile : TileService() {
 
     override fun onClick() {
         super.onClick()
-        val intent = Intent(this, CaptureForegroundService::class.java)
-        startForegroundService(intent)
+        startActivityAndCollapse(Intent(this, CaptureLaunchActivity::class.java))
     }
 }

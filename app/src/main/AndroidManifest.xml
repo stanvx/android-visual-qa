@@ -16,7 +16,13 @@
 
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="false" />
+
+        <activity
+            android:name=".CaptureLaunchActivity"
+            android:exported="true"
+            android:noHistory="true"
+            android:theme="@style/Theme.AndroidVisualQa.CaptureLaunch">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
