@@ -47,6 +47,12 @@ include(":sdk:compose")
 include(":sample:target-compose")
 include(":sample:sdk-integration")
 
+// M5 modules
+include(":export:share")
+include(":export:agent")
+include(":export:github")
+include(":export:jira")
+
 // Future modules (uncomment when needed):
 // include(":core:bitmap")
 // include(":capture:device")
