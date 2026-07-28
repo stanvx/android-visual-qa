@@ -104,6 +104,67 @@ class CaptureOrchestratorTest {
     }
 
     @Test
+    fun `startCapture persists capture context for the editor`() = runTest {
+        val frame = CapturedFrame(
+            displayId = 0,
+            widthPx = 480,
+            heightPx = 800,
+            rotation = Rotation.ROTATION_0,
+            capturedAt = clock.now(),
+        )
+        val node = NodeSnapshot(
+            nodeId = NodeId("button-1"),
+            boundsLeft = 10,
+            boundsTop = 20,
+            boundsRight = 100,
+            boundsBottom = 80,
+        )
+        val draftId = orchestrator.startCapture(
+            windowId = 7L,
+            captureFrame = { Result.success(CaptureResult(frame, fakePngBytes(), listOf(node))) },
+            packageName = { "com.target" },
+            draftStore = draftStore,
+            reportHistory = reportHistory,
+        ).getOrThrow()
+
+        val context = orchestrator.readCaptureContext(draftId, draftDirectory).getOrThrow()
+        assertNotNull(context)
+        assertEquals("com.target", context?.frame?.packageName)
+        assertEquals(node, context?.candidates?.single())
+    }
+
+    @Test
+    fun `finishPersistedDraft supports feedback without a rectangle`() = runTest {
+        val frame = CapturedFrame(
+            displayId = 0,
+            widthPx = 480,
+            heightPx = 800,
+            rotation = Rotation.ROTATION_0,
+            capturedAt = clock.now(),
+        )
+        val draftId = orchestrator.startCapture(
+            windowId = 7L,
+            captureFrame = { Result.success(CaptureResult(frame, fakePngBytes())) },
+            packageName = { "com.target" },
+            draftStore = draftStore,
+            reportHistory = reportHistory,
+        ).getOrThrow()
+
+        val report = orchestrator.finishPersistedDraft(
+            draftId = draftId,
+            rectangle = null,
+            feedback = "The spacing is wrong",
+            draftStore = draftStore,
+            reportHistory = reportHistory,
+            draftDirectory = draftDirectory,
+        ).getOrThrow()
+
+        assertEquals("The spacing is wrong", report.feedback.textBody)
+        assertTrue(report.annotations.isEmpty())
+        assertTrue(report.selections.isEmpty())
+    }
+
+    @Test
     fun `startCapture passes windowId into the captured frame`() = runTest {
         val frame = CapturedFrame(
             displayId = 0,

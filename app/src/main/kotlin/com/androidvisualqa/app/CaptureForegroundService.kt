@@ -7,13 +7,16 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.graphics.Rect
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.androidvisualqa.accessibility.VisualFeedbackAccessibilityService
+import com.androidvisualqa.accessibility.AccessibilityCaptureModule
 import com.androidvisualqa.app.trigger.QuickSettingsTile
-import com.androidvisualqa.capture.api.CapturedFrame
 import com.androidvisualqa.files.DraftDirectory
 import com.androidvisualqa.files.FileSystemDraftStore
+import com.androidvisualqa.geometry.Bounds
+import com.androidvisualqa.geometry.CoordinateSpace
 import com.androidvisualqa.model.ids.DraftId
 import com.androidvisualqa.report.FileSystemReportHistoryIndex
 import kotlinx.coroutines.CoroutineScope
@@ -21,7 +24,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.io.ByteArrayOutputStream
 import java.io.File
 
 /**
@@ -94,20 +96,49 @@ public class CaptureForegroundService : Service() {
         val service = findAccessibilityService()
             ?: return Result.failure(IllegalStateException("Accessibility service not running"))
 
+        val activeRoot = service.rootInActiveWindow
         val windowId = service.activeWindowId()
+            ?: activeRoot?.windowId?.toLong()
             ?: return Result.failure(IllegalStateException("No active accessibility window"))
+
+        if (windowId == 0L) {
+            return Result.failure(IllegalStateException("No active app window (home/recents?)"))
+        }
 
         val capturedFrame = service.takeWindowScreenshot(windowId)
             ?: return Result.failure(IllegalStateException("Window screenshot returned null"))
+        if (capturedFrame.pngBytes.isEmpty()) {
+            return Result.failure(IllegalStateException("Window screenshot contained no pixels"))
+        }
 
-        val pkgName = service.rootInActiveWindow?.packageName?.toString() ?: "unknown"
-
-        val pngBytes = compressToPng(capturedFrame)
+        val pkgName = activeRoot?.packageName?.toString() ?: "unknown"
+        activeRoot?.recycle()
+        val tree = AccessibilityCaptureModule { service }.snapshotTree(windowId)
+        val screenBounds = service.windows
+            ?.firstOrNull { it.id.toLong() == windowId }
+            ?.let { window ->
+                val bounds = Rect()
+                window.getBoundsInScreen(bounds)
+                Bounds(
+                    left = bounds.left.toDouble(),
+                    top = bounds.top.toDouble(),
+                    right = bounds.right.toDouble(),
+                    bottom = bounds.bottom.toDouble(),
+                    space = CoordinateSpace.ScreenPx,
+                )
+            }
 
         return orchestrator.startCapture(
             windowId = windowId,
             captureFrame = {
-                Result.success(CaptureResult(frame = capturedFrame, pngBytes = pngBytes))
+                Result.success(
+                    CaptureResult(
+                        frame = capturedFrame,
+                        pngBytes = capturedFrame.pngBytes,
+                        candidates = tree.nodes,
+                        screenBounds = screenBounds,
+                    ),
+                )
             },
             packageName = { pkgName },
             draftStore = draftStore,
@@ -115,25 +146,15 @@ public class CaptureForegroundService : Service() {
         )
     }
 
-    private fun findAccessibilityService(): VisualFeedbackAccessibilityService? {
-        // ponytail: global registry bridge until proper DI/binding in M3.
+    private suspend fun findAccessibilityService(): VisualFeedbackAccessibilityService? {
+        // ponytail: registry may not be set yet if the foreground service starts
+        // before the bridge's onServiceConnected() callback lands. Retry for up
+        // to 2 s so the QS-tap path works on cold start.
+        repeat(20) {
+            AppServiceRegistry.accessibilityService?.let { return it }
+            kotlinx.coroutines.delay(100)
+        }
         return AppServiceRegistry.accessibilityService
-    }
-
-    private fun compressToPng(frame: CapturedFrame): ByteArray {
-        // Build a lightweight bitmap representation:
-        // We don't have direct pixel data so we produce a small placeholder.
-        // TODO(m3): pipe actual bitmap from takeWindowScreenshot
-        val bmp = android.graphics.Bitmap.createBitmap(
-            frame.widthPx.coerceAtLeast(1), frame.heightPx.coerceAtLeast(1),
-            android.graphics.Bitmap.Config.ARGB_8888,
-        )
-        val canvas = android.graphics.Canvas(bmp)
-        canvas.drawColor(android.graphics.Color.argb(255, 200, 200, 200))
-        val stream = ByteArrayOutputStream()
-        bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)
-        bmp.recycle()
-        return stream.toByteArray()
     }
 
     private fun postSuccessNotification(draftId: DraftId) {

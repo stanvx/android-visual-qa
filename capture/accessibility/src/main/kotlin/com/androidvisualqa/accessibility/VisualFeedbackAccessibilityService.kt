@@ -122,6 +122,7 @@ public open class VisualFeedbackAccessibilityService : AccessibilityService() {
         val display = dm.getDisplay(Display.DEFAULT_DISPLAY) ?: return null
 
         val bitmap: Bitmap
+        var hardwareBuffer: HardwareBuffer? = null
 
         // API 34+: per-window screenshot using takeScreenshotOfWindow
         if (Build.VERSION.SDK_INT >= 34) {
@@ -140,6 +141,7 @@ public open class VisualFeedbackAccessibilityService : AccessibilityService() {
             if (!latch.await(SCREENSHOT_TIMEOUT_MS, TimeUnit.MILLISECONDS)) return null
             if (errorCode != null) return null
             val hb = result?.hardwareBuffer ?: return null
+            hardwareBuffer = hb
             bitmap = Bitmap.wrapHardwareBuffer(hb, null) ?: return null
         } else {
             // API 30–33: display-wide screenshot
@@ -158,6 +160,7 @@ public open class VisualFeedbackAccessibilityService : AccessibilityService() {
             if (!latch.await(SCREENSHOT_TIMEOUT_MS, TimeUnit.MILLISECONDS)) return null
             if (errorCode != null) return null
             val hb = result?.hardwareBuffer ?: return null
+            hardwareBuffer = hb
             bitmap = Bitmap.wrapHardwareBuffer(hb, null) ?: return null
         }
 
@@ -167,6 +170,7 @@ public open class VisualFeedbackAccessibilityService : AccessibilityService() {
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
             stream.toByteArray()
         }
+        hardwareBuffer?.close()
         bitmap.recycle()
 
         return CapturedFrame(
@@ -175,6 +179,7 @@ public open class VisualFeedbackAccessibilityService : AccessibilityService() {
             heightPx = height,
             rotation = Rotation.fromSurfaceRotation(display.rotation),
             capturedAt = Clock.System.now(),
+            pngBytes = pngBytes,
         )
     }
 

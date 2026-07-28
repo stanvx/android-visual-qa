@@ -27,7 +27,8 @@
             android:name=".trigger.QuickSettingsTile"
             android:label="Capture feedback"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
-            android:exported="true">
+            android:exported="true"
+            android:process=":a11y">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
             </intent-filter>
@@ -38,7 +39,8 @@
         <service
             android:name=".BridgeAccessibilityService"
             android:exported="true"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:process=":a11y">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
             </intent-filter>
@@ -47,11 +49,16 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
-        <!-- M2 foreground service that owns the capture → draft → editor flow. -->
+        <!-- M2 foreground service that owns the capture → draft → editor flow.
+             Exported so ADB can drive the flow during testing; the QS tile
+             starts it via startForegroundService() in the same UID.
+             Runs in the :a11y process so it can see the bridge service via
+             the in-process AppServiceRegistry. -->
         <service
             android:name=".CaptureForegroundService"
-            android:exported="false"
-            android:foregroundServiceType="dataSync" />
+            android:exported="true"
+            android:foregroundServiceType="dataSync"
+            android:process=":a11y" />
 
         <!-- M3 FileProvider for export share sheet and draft access. -->
         <provider

@@ -18,4 +18,6 @@ public data class CapturedFrame(
     val heightPx: Int,
     val rotation: Rotation,
     val capturedAt: Instant,
+    /** PNG bytes for the frozen frame, when the capture source provides them. */
+    val pngBytes: ByteArray = byteArrayOf(),
 )
