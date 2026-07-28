@@ -30,6 +30,9 @@ import com.androidvisualqa.accessibility.VisualFeedbackAccessibilityService
 import com.androidvisualqa.annotation.EditorScreen
 import com.androidvisualqa.annotation.EditorViewModel
 import com.androidvisualqa.annotation.RectangleAnnotation
+import com.androidvisualqa.database.ReportDatabase
+import com.androidvisualqa.database.RetentionConfig
+import com.androidvisualqa.database.RetentionPolicy
 import com.androidvisualqa.files.DraftDirectory
 import com.androidvisualqa.files.FileSystemDraftStore
 import com.androidvisualqa.geometry.Bounds
@@ -46,14 +49,92 @@ import java.io.File
  *
  * M2: FAB triggers real accessibility capture via [CaptureOrchestrator].
  * Save routes through matching engine + report assembler.
+ *
+ * M3: First launch routes to [PermissionDisclosureScreen]. After that,
+ * retention scheduling runs daily via [RetentionScheduler]. Process-death
+ * resumption is available through [ResumeDraftCoordinator].
  */
 public class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Track first-launch in SharedPreferences
+        val prefs = getSharedPreferences("visual_qa_prefs", Context.MODE_PRIVATE)
+        val firstLaunchDone = prefs.getBoolean("first_launch_done", false)
+
+        // Schedule retention cleanup once per day
+        RetentionScheduler(applicationContext).schedule(
+            RetentionConfig(policy = RetentionPolicy()),
+        )
+
         setContent {
             MaterialTheme {
-                AppNavigation(applicationContext = applicationContext)
+                AppNavigation(
+                    applicationContext = applicationContext,
+                    startAtDisclosure = !firstLaunchDone,
+                    onDisclosureComplete = {
+                        prefs.edit().putBoolean("first_launch_done", true).apply()
+                    },
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun AppNavigation(
+    applicationContext: Context,
+    startAtDisclosure: Boolean = false,
+    onDisclosureComplete: () -> Unit = {},
+) {
+    val navController = rememberNavController()
+    val draftStore = remember {
+        FileSystemDraftStore(
+            DraftDirectory(
+                applicationContext.getDir("drafts", Context.MODE_PRIVATE).toPath(),
+            ),
+        )
+    }
+    val reportHistory = remember {
+        val file = File(applicationContext.filesDir, "report_history.jsonl")
+        FileSystemReportHistoryIndex(file.toPath())
+    }
+
+    NavHost(
+        navController = navController,
+        startDestination = if (startAtDisclosure) "disclosure" else "drafts",
+    ) {
+        composable("disclosure") {
+            com.androidvisualqa.app.ui.permission.PermissionDisclosureScreen(
+                onContinue = {
+                    onDisclosureComplete()
+                    navController.navigate("drafts") {
+                        popUpTo("disclosure") { inclusive = true }
+                    }
+                },
+            )
+        }
+        composable("drafts") {
+            DraftListScreen(
+                onNewDraft = { navController.navigate("editor/new") },
+                onOpenDraft = { draftId -> navController.navigate("editor/$draftId") },
+            )
+        }
+        composable(
+            route = "editor/{draftId}",
+            arguments = listOf(navArgument("draftId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val draftId = backStackEntry.arguments?.getString("draftId")
+            val viewModel: EditorViewModel = viewModel()
+            EditorScreenWrapper(
+                viewModel = viewModel,
+                draftId = if (draftId == "new") null else draftId,
+                onSave = { rect, text ->
+                    // TODO(m3): wire matching + report after editor save
+                    navController.popBackStack()
+                },
+                onCancel = { navController.popBackStack() },
+            )
         }
     }
 }

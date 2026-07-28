@@ -45,6 +45,8 @@ dependencies {
     implementation(project(":matching"))
     implementation(project(":report"))
     implementation(project(":core:files"))
+    implementation(project(":core:privacy"))
+    implementation(project(":core:database"))
 
     // Compose
     implementation(platform(libs.androidx.compose.bom))
@@ -58,10 +60,16 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation("androidx.lifecycle:lifecycle-process:2.8.7")
+    implementation(libs.androidx.work.runtime.ktx)
 
     // Tests
+    testImplementation(project(":core:testing"))
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.androidx.work.testing)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.room.testing)
     implementation(libs.kotlinx.datetime)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

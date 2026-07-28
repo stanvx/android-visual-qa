@@ -4,6 +4,7 @@
     <uses-permission android:name="android.permission.BIND_ACCESSIBILITY_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- dataSync: M2 uses accessibility capture (not media projection). Change
          to mediaProjection or specialUse if a future lane switches to
          MediaProjectionManager for the capture source. -->
@@ -51,5 +52,16 @@
             android:name=".CaptureForegroundService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <!-- M3 FileProvider for export share sheet and draft access. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>

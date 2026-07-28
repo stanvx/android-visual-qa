@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App identity -->
+    <string name="app_name">Visual QA</string>
+
+    <!-- Accessibility service -->
+    <string name="accessibility_service_label">Visual QA Capture</string>
+    <string name="accessibility_service_description">Captures the current screen for visual feedback reports.</string>
+
+    <!-- Quick Settings tile -->
+    <string name="quick_settings_tile_label">Capture feedback</string>
+
+    <!-- Draft list -->
+    <string name="draft_list_title">Visual QA</string>
+    <string name="draft_list_empty_hint">Tap + to start a new draft</string>
+
+    <!-- Permission disclosure screen -->
+    <string name="disclosure_title">Before you start</string>
+    <string name="disclosure_continue">Continue without granting</string>
+    <string name="disclosure_open_accessibility">Open Accessibility Settings</string>
+    <string name="disclosure_open_notifications">Open Notification Settings</string>
+    <string name="disclosure_accessibility_heading">Accessibility Service</string>
+    <string name="disclosure_accessibility_body">Visual QA uses the Accessibility Service to read the on-screen layout. This lets us identify which UI element you want to report on. We do not read passwords, payment card numbers, or other text from secured input fields. No data is sent off-device without your explicit export action.</string>
+    <string name="disclosure_notifications_heading">Notifications</string>
+    <string name="disclosure_notifications_body">Notifications are used to show capture progress and alert you when a report is ready. All processing stays on your device.</string>
+    <string name="disclosure_storage_heading">Local Storage</string>
+    <string name="disclosure_storage_body">Screenshots, annotations, and reports are saved to the app\'s private storage. You can delete them at any time from the draft list. Exported files you save to Downloads leave app storage under your control.</string>
+    <string name="disclosure_network_heading">Network Access</string>
+    <string name="disclosure_network_body">Network access is used only when you explicitly export a report via the share sheet or save to Downloads. No background uploads, no telemetry, no analytics.</string>
+
+    <!-- Redaction overlay -->
+    <string name="redaction_long_press_hint">Long-press to redact this area</string>
+    <string name="redaction_tap_to_remove">Tap a redacted region to remove it</string>
+
+    <!-- Export sheet -->
+    <string name="export_sheet_title">Export report</string>
+    <string name="export_share_zip">Share ZIP</string>
+    <string name="export_save_downloads">Save to Downloads</string>
+    <string name="export_cancel">Cancel</string>
+    <string name="export_failed">Export failed</string>
+
+    <!-- Retention / general -->
+    <string name="error_generic">Something went wrong. Please try again.</string>
+</resources>
