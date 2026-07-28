@@ -1,5 +1,7 @@
 package com.androidvisualqa.capture.api
 
+import com.androidvisualqa.model.ids.DraftId
+
 /**
  * Single-entry reducer for the capture state machine.
  *
@@ -57,7 +59,6 @@ public object CaptureReducer {
     }
 
     private fun onCaptureFailed(state: CaptureState, command: CaptureCommand.CaptureFailed): CaptureState {
-        // Any active state can transition to Failed.
         if (state.isTerminal()) {
             throw IllegalStateException(
                 "CaptureFailed is not valid from terminal state ${state::class.simpleName}"
@@ -89,7 +90,8 @@ public object CaptureReducer {
             || this is CaptureState.Cancelled
             || this is CaptureState.Failed
 
-    private inline fun <reified S : CaptureState> requireState(
+    @PublishedApi
+    internal inline fun <reified S : CaptureState> requireState(
         state: CaptureState,
         lazyMessage: () -> String,
     ): S {

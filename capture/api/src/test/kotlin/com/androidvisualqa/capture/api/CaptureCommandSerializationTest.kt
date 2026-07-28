@@ -1,7 +1,14 @@
 package com.androidvisualqa.capture.api
 
+import com.androidvisualqa.geometry.Bounds
+import com.androidvisualqa.geometry.CoordinateSpace
+import com.androidvisualqa.geometry.Rotation
+import com.androidvisualqa.model.ids.DraftId
+import kotlinx.datetime.Clock
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.util.UUID
 
 /**
  * Verifies that [CaptureCommand] types have stable [toString] representations
@@ -22,8 +29,7 @@ class CaptureCommandSerializationTest {
         val cmd = CaptureCommand.Trigger(TriggerSource.AccessibilityBubble)
         val str = cmd.toString()
         assertNotNull(str)
-        // toString should include the source type
-        org.junit.jupiter.api.Assertions.assertTrue(
+        assertTrue(
             str.contains("AccessibilityBubble"),
             "Trigger.toString should include source: $str",
         )
@@ -40,7 +46,7 @@ class CaptureCommandSerializationTest {
         val cmd = CaptureCommand.CaptureFailed(CaptureFailure.ServiceDisconnected)
         val str = cmd.toString()
         assertNotNull(str)
-        org.junit.jupiter.api.Assertions.assertTrue(
+        assertTrue(
             str.contains("ServiceDisconnected"),
             "CaptureFailed.toString should include reason: $str",
         )
@@ -48,18 +54,16 @@ class CaptureCommandSerializationTest {
 
     @Test
     fun `ContextReady toString does not crash`() {
-        val now = kotlinx.datetime.Clock.System.now()
         val snapshot = ContextSnapshot(
             packageName = "com.example",
             windowId = 42L,
             displayId = 0,
-            bounds = com.androidvisualqa.core.geometry.Bounds(
-                com.androidvisualqa.core.geometry.ScreenPx(0f),
-                com.androidvisualqa.core.geometry.ScreenPx(0f),
-                com.androidvisualqa.core.geometry.ScreenPx(1080f),
-                com.androidvisualqa.core.geometry.ScreenPx(2400f),
+            bounds = Bounds(
+                left = 0.0, top = 0.0,
+                right = 1080.0, bottom = 2400.0,
+                space = CoordinateSpace.ScreenPx,
             ),
-            capturedAt = now,
+            capturedAt = Clock.System.now(),
         )
         val cmd = CaptureCommand.ContextReady(snapshot)
         assertNotNull(cmd.toString())
@@ -67,13 +71,12 @@ class CaptureCommandSerializationTest {
 
     @Test
     fun `PixelsReady toString does not crash`() {
-        val now = kotlinx.datetime.Clock.System.now()
         val frame = CapturedFrame(
             displayId = 0,
             widthPx = 1080,
             heightPx = 2400,
-            rotation = com.androidvisualqa.core.geometry.Rotation.Rotation_0,
-            capturedAt = now,
+            rotation = Rotation.ROTATION_0,
+            capturedAt = Clock.System.now(),
         )
         val cmd = CaptureCommand.PixelsReady(frame)
         assertNotNull(cmd.toString())
@@ -81,11 +84,11 @@ class CaptureCommandSerializationTest {
 
     @Test
     fun `EditorSaved toString contains draftId`() {
-        val draftId = DraftId.random()
+        val draftId = DraftId(UUID.randomUUID().toString())
         val cmd = CaptureCommand.EditorSaved(draftId)
         val str = cmd.toString()
         assertNotNull(str)
-        org.junit.jupiter.api.Assertions.assertTrue(
+        assertTrue(
             str.contains(draftId.value),
             "EditorSaved.toString should include draftId: $str",
         )
@@ -93,28 +96,32 @@ class CaptureCommandSerializationTest {
 
     @Test
     fun `all command types have non-null toString`() {
-        val now = kotlinx.datetime.Clock.System.now()
+        val now = Clock.System.now()
         val commands = listOf(
             CaptureCommand.Trigger(TriggerSource.AccessibilityBubble),
             CaptureCommand.ContextReady(
                 ContextSnapshot(
-                    "com.example", 42L, 0,
-                    com.androidvisualqa.core.geometry.Bounds(
-                        com.androidvisualqa.core.geometry.ScreenPx(0f),
-                        com.androidvisualqa.core.geometry.ScreenPx(0f),
-                        com.androidvisualqa.core.geometry.ScreenPx(1080f),
-                        com.androidvisualqa.core.geometry.ScreenPx(2400f),
+                    packageName = "com.example",
+                    windowId = 42L,
+                    displayId = 0,
+                    bounds = Bounds(
+                        left = 0.0, top = 0.0,
+                        right = 1080.0, bottom = 2400.0,
+                        space = CoordinateSpace.ScreenPx,
                     ),
-                    now,
+                    capturedAt = now,
                 ),
             ),
-            CaptureCommand.PixelsReady(CapturedFrame(0, 1080, 2400, com.androidvisualqa.core.geometry.Rotation.Rotation_0, now)),
+            CaptureCommand.PixelsReady(CapturedFrame(0, 1080, 2400, Rotation.ROTATION_0, now)),
             CaptureCommand.CaptureFailed(CaptureFailure.ServiceDisconnected),
             CaptureCommand.UserCancelled,
-            CaptureCommand.EditorSaved(DraftId.random()),
+            CaptureCommand.EditorSaved(DraftId(UUID.randomUUID().toString())),
         )
         for (cmd in commands) {
-            assertNotNull(cmd.toString(), "toString must not return null for ${cmd::class.simpleName}")
+            assertNotNull(
+                cmd.toString(),
+                "toString must not return null for ${cmd::class.simpleName}",
+            )
         }
     }
 }

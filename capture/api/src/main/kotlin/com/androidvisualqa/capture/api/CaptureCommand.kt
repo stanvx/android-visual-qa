@@ -1,5 +1,7 @@
 package com.androidvisualqa.capture.api
 
+import com.androidvisualqa.model.ids.DraftId
+
 /**
  * Commands that drive the capture state machine.
  *

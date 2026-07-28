@@ -1,8 +1,9 @@
 package com.androidvisualqa.capture.api
 
-import com.androidvisualqa.core.geometry.Bounds
-import com.androidvisualqa.core.geometry.Rotation
-import com.androidvisualqa.core.geometry.ScreenPx
+import com.androidvisualqa.geometry.Bounds
+import com.androidvisualqa.geometry.CoordinateSpace
+import com.androidvisualqa.geometry.Rotation
+import com.androidvisualqa.model.ids.DraftId
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Clock
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -10,26 +11,30 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import java.util.UUID
 
 class CaptureReducerTest {
 
     private val reducer = CaptureReducer
-    private val now = { Clock.System.now() }
 
     private val snapshot = ContextSnapshot(
         packageName = "com.example.app",
         windowId = 42L,
         displayId = 0,
-        bounds = Bounds(ScreenPx(0f), ScreenPx(0f), ScreenPx(1080f), ScreenPx(2400f)),
-        capturedAt = now(),
+        bounds = Bounds(
+            left = 0.0, top = 0.0,
+            right = 1080.0, bottom = 2400.0,
+            space = CoordinateSpace.ScreenPx,
+        ),
+        capturedAt = Clock.System.now(),
     )
 
     private val frame = CapturedFrame(
         displayId = 0,
         widthPx = 1080,
         heightPx = 2400,
-        rotation = Rotation.Rotation_0,
-        capturedAt = now(),
+        rotation = Rotation.ROTATION_0,
+        capturedAt = Clock.System.now(),
     )
 
     // -- Happy path -----------------------------------------------------------
@@ -62,13 +67,13 @@ class CaptureReducerTest {
     fun `EditorSaved from PersistingDraft transitions to LaunchingEditor`() = runTest {
         val next = reducer.reduce(
             CaptureState.PersistingDraft,
-            CaptureCommand.EditorSaved(DraftId.random()),
+            CaptureCommand.EditorSaved(DraftId(UUID.randomUUID().toString())),
         )
         assertEquals(CaptureState.LaunchingEditor, next)
     }
 
     // -- Full trace -----------------------------------------------------------
-    // Trigger -> ContextReady -> PixelsReady -> EditorSaved
+    // Trigger -> ContextReady -> PixelsReady -> PixelsReady -> EditorSaved
     @Test
     fun `full capture flow trace`() = runTest {
         val state0 = CaptureState.Idle
@@ -84,7 +89,7 @@ class CaptureReducerTest {
         val state4 = reducer.reduce(state3, CaptureCommand.PixelsReady(frame))
         assertEquals(CaptureState.PersistingDraft, state4)
 
-        val state5 = reducer.reduce(state4, CaptureCommand.EditorSaved(DraftId.random()))
+        val state5 = reducer.reduce(state4, CaptureCommand.EditorSaved(DraftId(UUID.randomUUID().toString())))
         assertEquals(CaptureState.LaunchingEditor, state5)
     }
 
@@ -153,7 +158,10 @@ class CaptureReducerTest {
         )
         for (state in activeStates) {
             val next = reducer.reduce(state, CaptureCommand.UserCancelled)
-            assertEquals(CaptureState.Cancelled, next, "UserCancelled should work from ${state::class.simpleName}")
+            assertEquals(
+                CaptureState.Cancelled, next,
+                "UserCancelled should work from ${state::class.simpleName}",
+            )
         }
     }
 
@@ -175,7 +183,10 @@ class CaptureReducerTest {
             val ex = assertThrows<IllegalStateException> {
                 reducer.reduce(state, CaptureCommand.Trigger(TriggerSource.AccessibilityBubble))
             }
-            assertTrue(ex.message?.contains("Trigger") == true, "Expected Trigger error in message, got: ${ex.message}")
+            assertTrue(
+                ex.message?.contains("Trigger") == true,
+                "Expected Trigger error in message, got: ${ex.message}",
+            )
         }
     }
 
@@ -190,7 +201,7 @@ class CaptureReducerTest {
     @Test
     fun `EditorSaved from non-PersistingDraft state throws IllegalStateException`() = runTest {
         val ex = assertThrows<IllegalStateException> {
-            reducer.reduce(CaptureState.Idle, CaptureCommand.EditorSaved(DraftId.random()))
+            reducer.reduce(CaptureState.Idle, CaptureCommand.EditorSaved(DraftId(UUID.randomUUID().toString())))
         }
         assertTrue(ex.message?.contains("EditorSaved") == true)
     }
@@ -206,7 +217,9 @@ class CaptureReducerTest {
             val ex = assertThrows<IllegalStateException> {
                 reducer.reduce(state, CaptureCommand.UserCancelled)
             }
-            assertTrue(ex.message?.contains("UserCancelled") == true || ex.message?.contains("terminal") == true)
+            assertTrue(
+                ex.message?.contains("UserCancelled") == true || ex.message?.contains("terminal") == true,
+            )
         }
     }
 
@@ -222,7 +235,6 @@ class CaptureReducerTest {
 
     @Test
     fun `CaptureFailed from Idle transitions to Failed recoverable for transient`() = runTest {
-        // Idle is technically not "active" but the reducer allows it as it's not terminal.
         val next = reducer.reduce(
             CaptureState.Idle,
             CaptureCommand.CaptureFailed(CaptureFailure.ServiceDisconnected),

@@ -1,13 +1,22 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.plugin.serialization)
 }
 
 dependencies {
+    implementation(project(":core:model"))
+    implementation(project(":capture:api"))
+    implementation(project(":core:geometry"))
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kotlinx.datetime)
 
-    testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation(libs.junit.jupiter)
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    // Exposed to consumers — these are testing utilities
+    api(libs.kotlinx.coroutines.test)
+    api(libs.junit.jupiter)
+    api("org.junit.platform:junit-platform-launcher") {
+        because("JUnit Platform launcher for JUnit 5 test execution")
+    }
 }
 
 tasks.named<Test>("test") {
