@@ -1,9 +1,12 @@
 package com.androidvisualqa.sdk.compose
 
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.IntRect
 import com.androidvisualqa.sdk.composecore.BuildMetadata
 import com.androidvisualqa.sdk.composecore.DesignSystemSnapshot
 import com.androidvisualqa.sdk.composecore.PrivacyClassification
@@ -67,8 +70,28 @@ fun Modifier.feedbackTarget(
         }
     }
 
-    onGloballyPositioned {
-        // Bounds are available after the first layout pass.
-        // Future iterations may update the descriptor with bounds here.
+    onGloballyPositioned { coordinates ->
+        // Capture bounds after first layout. Compose may emit a zero-bounds frame
+        // during initial layout — skip that to avoid registering garbage bounds.
+        // ponytail: initial-frame zero-bounds race. If a component's position changes
+        // after first layout (e.g. animation), this will update the bounds. If
+        // multiple rapid relayouts cause performance issues, switch to a
+        // onGloballyPositioned-throttle or use snapshotFlow + coordinates.
+        val layoutBounds = coordinates.boundsInWindow()
+        if (layoutBounds.width > 0 && layoutBounds.height > 0) {
+            val updated = SdkComponentDescriptor(
+                stableId = stableId,
+                route = route,
+                designSystem = designSystem,
+                privacy = privacy,
+                build = build,
+                semantics = semantics,
+                boundsLeft = layoutBounds.left.toInt(),
+                boundsTop = layoutBounds.top.toInt(),
+                boundsRight = layoutBounds.right.toInt(),
+                boundsBottom = layoutBounds.bottom.toInt(),
+            )
+            registry.update(stableId, updated)
+        }
     }
 }

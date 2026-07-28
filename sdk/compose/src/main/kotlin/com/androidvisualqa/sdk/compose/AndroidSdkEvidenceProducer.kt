@@ -45,10 +45,10 @@ class AndroidSdkEvidenceProducer(
                 componentId = SdkComponentId(descriptor.stableId),
                 componentType = "sdk.component",
                 route = descriptor.route?.path,
-                boundsLeft = 0,
-                boundsTop = 0,
-                boundsRight = 0,
-                boundsBottom = 0,
+                boundsLeft = descriptor.boundsLeft,
+                boundsTop = descriptor.boundsTop,
+                boundsRight = descriptor.boundsRight,
+                boundsBottom = descriptor.boundsBottom,
                 role = descriptor.stableId,
                 state = null,
                 testTag = null,
@@ -92,6 +92,10 @@ class AndroidSdkEvidenceProducer(
 
     /**
      * Map [Sensitivity] to the schema's [FeedbackPrivacy].
+     *
+     * `NeverCapture` is unreachable in M4. The host app would need to supply a
+     * `secure: Boolean` parameter to `VisualFeedbackHost` and we'd map that to
+     * `NeverCapture`. Deferred to M5 (or whenever FLAG_SECURE auto-detection ships).
      *
      * The SDK schema has three values: [FeedbackPrivacy.Public], [FeedbackPrivacy.Sensitive],
      * and [FeedbackPrivacy.NeverCapture]. The privacy module has a richer enum. This

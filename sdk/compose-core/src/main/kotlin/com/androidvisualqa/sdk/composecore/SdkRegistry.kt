@@ -22,6 +22,14 @@ interface SdkRegistry {
 
     /** Return all currently registered components. */
     fun all(): List<SdkComponentDescriptor>
+
+    /**
+     * Update an existing descriptor in-place.
+     *
+     * Looks up the descriptor by [descriptor.stableId]; if present, replaces it with
+     * the new descriptor. Returns `false` if no entry with that stableId exists.
+     */
+    fun update(stableId: String, descriptor: SdkComponentDescriptor): Boolean
 }
 
 /**
@@ -59,6 +67,14 @@ class InMemorySdkRegistry : SdkRegistry {
     override fun all(): List<SdkComponentDescriptor> = runBlocking {
         mutex.withLock {
             store.values.toList()
+        }
+    }
+
+    override fun update(stableId: String, descriptor: SdkComponentDescriptor): Boolean = runBlocking {
+        mutex.withLock {
+            if (stableId !in store) return@withLock false
+            store[stableId] = descriptor
+            true
         }
     }
 }

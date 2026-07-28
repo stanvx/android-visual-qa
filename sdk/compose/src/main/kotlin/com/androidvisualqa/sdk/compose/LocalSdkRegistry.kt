@@ -25,4 +25,5 @@ internal class NoopSdkRegistry : SdkRegistry {
     override fun unregister(stableId: String): Boolean = false
     override fun get(stableId: String): com.androidvisualqa.sdk.composecore.SdkComponentDescriptor? = null
     override fun all(): List<com.androidvisualqa.sdk.composecore.SdkComponentDescriptor> = emptyList()
+    override fun update(stableId: String, descriptor: com.androidvisualqa.sdk.composecore.SdkComponentDescriptor): Boolean = false
 }

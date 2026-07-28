@@ -69,4 +69,48 @@ class SdkRegistryIntegrationTest {
         assertEquals(3, all.size)
         assertEquals(setOf("a", "b", "c"), all.map { it.stableId }.toSet())
     }
+
+    @Test
+    fun `update replaces descriptor bounds`() {
+        val registry = InMemorySdkRegistry()
+        val original = SdkComponentDescriptor(stableId = "my.button")
+        registry.register(original)
+
+        val updated = original.copy(
+            boundsLeft = 10, boundsTop = 20,
+            boundsRight = 110, boundsBottom = 50,
+        )
+        val updateResult = registry.update("my.button", updated)
+        assertTrue("Expected update to succeed", updateResult)
+
+        val retrieved = registry.get("my.button")
+        assertNotNull("Expected descriptor after update", retrieved)
+        val r = retrieved!!
+        assertEquals(10, r.boundsLeft)
+        assertEquals(20, r.boundsTop)
+        assertEquals(110, r.boundsRight)
+        assertEquals(50, r.boundsBottom)
+    }
+
+    @Test
+    fun `update returns false for unknown stableId`() {
+        val registry = InMemorySdkRegistry()
+        val descriptor = SdkComponentDescriptor(stableId = "nope")
+        val result = registry.update("nope", descriptor)
+        assertTrue("Expected update to return false for missing id", !result)
+    }
+
+    @Test
+    fun `register then update replaces not duplicates`() {
+        val registry = InMemorySdkRegistry()
+        val original = SdkComponentDescriptor(stableId = "only.one")
+        assertTrue("First register", registry.register(original))
+
+        val updated = original.copy(boundsRight = 200)
+        assertTrue("Update should succeed", registry.update("only.one", updated))
+
+        val all = registry.all()
+        assertEquals(1, all.size)
+        assertEquals(200, all[0].boundsRight)
+    }
 }
