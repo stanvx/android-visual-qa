@@ -20,21 +20,23 @@ import androidx.compose.ui.unit.dp
 import com.androidvisualqa.app.R
 
 /**
- * M3 export bottom sheet triggered from the editor save bar after save.
+ * M5 export bottom sheet triggered from the editor save bar after save.
  *
- * Three options:
+ * Four options:
  * 1. "Share ZIP" — fires a system share sheet via FileProvider.
  * 2. "Save to Downloads" — saves to MediaStore (API 29+) or FileProvider (lower).
- * 3. "Cancel" — dismisses the sheet.
+ * 3. "Export Agent Bundle" — writes an agent-friendly JSON bundle and shares it.
+ * 4. "Cancel" — dismisses the sheet.
  *
  * ponytail: static bottom sheet; no progress indicator, no error retry.
- * M4 may add in-flight progress and error states.
+ * M6 may add in-flight progress and error states.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 public fun ExportSheet(
     onShareZip: () -> Unit,
     onSaveToDownloads: () -> Unit,
+    onExportAgentBundle: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -78,6 +80,19 @@ public fun ExportSheet(
                 ),
             ) {
                 Text(context.getString(R.string.export_save_downloads))
+            }
+
+            Button(
+                onClick = {
+                    onExportAgentBundle()
+                    onDismiss()
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiary,
+                ),
+            ) {
+                Text(context.getString(R.string.export_agent_bundle))
             }
 
             Spacer(modifier = Modifier.height(12.dp))

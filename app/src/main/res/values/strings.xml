@@ -37,6 +37,7 @@
     <string name="export_share_zip">Share ZIP</string>
     <string name="export_save_downloads">Save to Downloads</string>
     <string name="export_cancel">Cancel</string>
+    <string name="export_agent_bundle">Export Agent Bundle</string>
     <string name="export_failed">Export failed</string>
 
     <!-- Retention / general -->

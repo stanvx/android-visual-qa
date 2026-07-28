@@ -47,6 +47,10 @@ dependencies {
     implementation(project(":core:files"))
     implementation(project(":core:privacy"))
     implementation(project(":core:database"))
+    implementation(project(":export:share"))
+    implementation(project(":export:agent"))
+    implementation(project(":export:github"))
+    implementation(project(":export:jira"))
 
     // Compose
     implementation(platform(libs.androidx.compose.bom))

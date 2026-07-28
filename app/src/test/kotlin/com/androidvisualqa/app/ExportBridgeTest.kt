@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
-import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -20,10 +19,10 @@ import java.nio.file.Path
  * Uses a hand-rolled fake [Context] to satisfy Android API requirements
  * without Robolectric. Draft files are created in a temp directory.
  *
- * ponytail: validates ZIP creation and cache file existence; skips
- * FileProvider URI verification which requires full Android platform
- * mocking (Robolectric or similar). The saveToDownloads test on API 29+
- * uses MediaStore which is not available in unit test environments.
+ * ponytail: validates that the bridge delegates to
+ * [ReportShareOrchestrator] by checking that the returned [Result] is a
+ * [Result.failure] because FileProvider / MediaStore are unavailable in a
+ * plain unit test environment.
  */
 class ExportBridgeTest {
 
@@ -52,35 +51,26 @@ class ExportBridgeTest {
     }
 
     @Test
-    fun `exportAndShare creates non-empty cache file`() = runBlocking {
+    fun `exportAndShare delegates to orchestrator and returns failure in unit test`() = runBlocking {
+        // ReportShareOrchestrator.shareAsZip catches the NotImplementedError
+        // from FileProvider inside its own runCatching, so bridge returns a
+        // Result.failure directly — no exception thrown.
         val result = bridge.exportAndShare(report)
 
-        // The ZIP file should be created even if FileProvider URI
-        // resolution fails in unit test environment (without platform).
-        assertTrue(result.isFailure || result.isSuccess) {
-            "export should either succeed or fail gracefully: ${result.exceptionOrNull()}"
-        }
-
-        // The cache file should exist regardless of whether the
-        // FileProvider URI could be generated.
-        val cacheFile = File(context.cacheDir, "exports/test-report-001.zip")
-        if (cacheFile.exists()) {
-            assertTrue(cacheFile.length() > 0) {
-                "Cache file should be non-empty, got size ${cacheFile.length()}"
-            }
+        assertTrue(result.isFailure) {
+            "exportAndShare must fail in unit test without platform mocking, " +
+                "got: ${result.getOrNull()}"
         }
     }
 
     @Test
-    fun `saveToDownloads succeeds when content resolver is available`() = runBlocking {
-        // In unit test environment the MediaStore path fails gracefully
-        // because ContentResolver.insert returns null.
-        // We just verify no exception is thrown.
-        val result = kotlin.runCatching { bridge.saveToDownloads(report) }
-        assertTrue(
-            result.isSuccess || result.exceptionOrNull()?.message?.contains("not implemented") == false,
-            "saveToDownloads should not throw unexpected errors: ${result.exceptionOrNull()}",
-        )
+    fun `saveToDownloads delegates to orchestrator and returns failure in unit test`() = runBlocking {
+        val result = bridge.saveToDownloads(report)
+
+        assertTrue(result.isFailure) {
+            "saveToDownloads should fail in unit test because MediaStore " +
+                "is not available, got: ${result.getOrNull()}"
+        }
     }
 
     private fun fakePngBytes(): ByteArray = byteArrayOf(
