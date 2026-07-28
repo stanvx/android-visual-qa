@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Minimal base theme for the fixture app.
+        Compose MaterialTheme handles all visual theming at the composable layer.
+    -->
+    <style name="Theme.TargetCompose" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

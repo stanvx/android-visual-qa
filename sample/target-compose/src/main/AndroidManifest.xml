@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:label="VQA Target (Compose)"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.TargetCompose">
+
+        <!-- Main launcher — fixture menu -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Screens with default adjustResize -->
+        <activity android:name=".screens.MergedSemanticsScreenActivity" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".screens.NestedClickTargetsScreenActivity" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".screens.LazyColumnScreenActivity" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".screens.WebViewScreenActivity" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".screens.CanvasScreenActivity" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".screens.PasswordFieldScreenActivity" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".screens.DialogScreenActivity" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".screens.ImeScreenActivity" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".screens.RotationScreenActivity" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".screens.SplitScreenScreenActivity"
+            android:resizeableActivity="true"
+            android:supportsPictureInPicture="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".screens.TabletLayoutScreenActivity"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- Secure screen: FLAG_SECURE, no recents, separate task -->
+        <activity
+            android:name=".screens.SecureScreenScreenActivity"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:windowSoftInputMode="adjustResize" />
+
+    </application>
+
+</manifest>
