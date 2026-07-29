@@ -34,6 +34,8 @@ dependencies {
     // Project dependencies (kept: used in source; removed: :capture:api, :capture:pixels, :report, :core:geometry — unused in M1)
     implementation(project(":core:model"))
     implementation(project(":core:files"))
+    implementation(libs.kotlinx.datetime)
+    implementation(libs.kotlinx.serialization.json)
 
     // Compose
     implementation(platform(libs.androidx.compose.bom))

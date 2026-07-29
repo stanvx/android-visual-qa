@@ -1,6 +1,7 @@
 package com.androidvisualqa.annotation
 
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Assertions.assertEquals
 
 /**
  * JVM-level verification for [EditorViewModel] behaviours that don't require
@@ -13,6 +14,43 @@ import org.junit.jupiter.api.Test
  * // TODO(m2): add Robolectric-based ViewModel tests when the test infra ships.
  */
 class EditorViewModelTest {
+
+    @Test
+    fun `editor draft state round trips annotations and comments`() {
+        val state = EditorState(
+            rectangles = listOf(
+                RectangleAnnotation(AnnotationId("r1"), 0.1f, 0.2f, 0.7f, 0.8f, 0xFF6750A4L),
+            ),
+            feedbackText = "line one\nline two",
+        )
+
+        val restored = EditorDraftStateCodec.decode(EditorDraftStateCodec.encode(state))
+
+        assertEquals(state.rectangles, restored.rectangles)
+        assertEquals(state.feedbackText, restored.feedbackText)
+    }
+
+    @Test
+    fun `closed lasso keeps its snapped bounds and comment`() {
+        val lasso = AnnotationItem(
+            id = AnnotationId("lasso-1"),
+            geometry = AnnotationGeometry.Lasso(
+                points = listOf(
+                    NormalizedPoint.from(0.1f, 0.2f),
+                    NormalizedPoint.from(0.7f, 0.2f),
+                    NormalizedPoint.from(0.7f, 0.8f),
+                    NormalizedPoint.from(0.1f, 0.8f),
+                    NormalizedPoint.from(0.1f, 0.2f),
+                ),
+                bounds = NormalizedBounds.from(0.08f, 0.18f, 0.72f, 0.82f),
+            ),
+        ).withComment("Fix this")
+        val restored = EditorDraftStateCodec.decode(
+            EditorDraftStateCodec.encode(EditorState(annotations = listOf(lasso))),
+        )
+
+        assertEquals(lasso, restored.annotations.single())
+    }
 
     @Test
     fun `save callback receives rectangle and feedback text`() {

@@ -25,6 +25,12 @@ public data class DraftManifest(
     val annotatedSha256: String? = null,
     val reportSchemaVersion: Int,
     val captureState: String,
+    val displayId: Int = 0,
+    val windowId: Int = 0,
+    val packageName: String = "unknown",
+    val widthPx: Int = 0,
+    val heightPx: Int = 0,
+    val rotationDegrees: Int = 0,
 )
 
 /**
@@ -122,6 +128,12 @@ public class FileSystemDraftStore(public val directory: DraftDirectory) : DraftS
         m.annotatedSha256?.let { appendLine("annotatedSha256=$it") }
         appendLine("reportSchemaVersion=${m.reportSchemaVersion}")
         appendLine("captureState=${m.captureState}")
+        appendLine("displayId=${m.displayId}")
+        appendLine("windowId=${m.windowId}")
+        appendLine("packageName=${m.packageName}")
+        appendLine("widthPx=${m.widthPx}")
+        appendLine("heightPx=${m.heightPx}")
+        appendLine("rotationDegrees=${m.rotationDegrees}")
     }
 
     private fun manifestFromString(text: String): DraftManifest {
@@ -140,6 +152,12 @@ public class FileSystemDraftStore(public val directory: DraftDirectory) : DraftS
             annotatedSha256 = map["annotatedSha256"],
             reportSchemaVersion = map.getValue("reportSchemaVersion").toInt(),
             captureState = map.getValue("captureState"),
+            displayId = map["displayId"]?.toIntOrNull() ?: 0,
+            windowId = map["windowId"]?.toIntOrNull() ?: 0,
+            packageName = map["packageName"] ?: "unknown",
+            widthPx = map["widthPx"]?.toIntOrNull() ?: 0,
+            heightPx = map["heightPx"]?.toIntOrNull() ?: 0,
+            rotationDegrees = map["rotationDegrees"]?.toIntOrNull() ?: 0,
         )
     }
 

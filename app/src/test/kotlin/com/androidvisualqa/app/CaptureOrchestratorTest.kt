@@ -104,6 +104,67 @@ class CaptureOrchestratorTest {
     }
 
     @Test
+    fun `startCapture persists capture context for the editor`() = runTest {
+        val frame = CapturedFrame(
+            displayId = 0,
+            widthPx = 480,
+            heightPx = 800,
+            rotation = Rotation.ROTATION_0,
+            capturedAt = clock.now(),
+        )
+        val node = NodeSnapshot(
+            nodeId = NodeId("button-1"),
+            boundsLeft = 10,
+            boundsTop = 20,
+            boundsRight = 100,
+            boundsBottom = 80,
+        )
+        val draftId = orchestrator.startCapture(
+            windowId = 7L,
+            captureFrame = { Result.success(CaptureResult(frame, fakePngBytes(), listOf(node))) },
+            packageName = { "com.target" },
+            draftStore = draftStore,
+            reportHistory = reportHistory,
+        ).getOrThrow()
+
+        val context = orchestrator.readCaptureContext(draftId, draftDirectory).getOrThrow()
+        assertNotNull(context)
+        assertEquals("com.target", context?.frame?.packageName)
+        assertEquals(node, context?.candidates?.single())
+    }
+
+    @Test
+    fun `finishPersistedDraft supports feedback without a rectangle`() = runTest {
+        val frame = CapturedFrame(
+            displayId = 0,
+            widthPx = 480,
+            heightPx = 800,
+            rotation = Rotation.ROTATION_0,
+            capturedAt = clock.now(),
+        )
+        val draftId = orchestrator.startCapture(
+            windowId = 7L,
+            captureFrame = { Result.success(CaptureResult(frame, fakePngBytes())) },
+            packageName = { "com.target" },
+            draftStore = draftStore,
+            reportHistory = reportHistory,
+        ).getOrThrow()
+
+        val report = orchestrator.finishPersistedDraft(
+            draftId = draftId,
+            rectangle = null,
+            feedback = "The spacing is wrong",
+            draftStore = draftStore,
+            reportHistory = reportHistory,
+            draftDirectory = draftDirectory,
+        ).getOrThrow()
+
+        assertEquals("The spacing is wrong", report.feedback.textBody)
+        assertTrue(report.annotations.isEmpty())
+        assertTrue(report.selections.isEmpty())
+    }
+
+    @Test
     fun `startCapture passes windowId into the captured frame`() = runTest {
         val frame = CapturedFrame(
             displayId = 0,
@@ -296,6 +357,80 @@ class CaptureOrchestratorTest {
         val entries = reportHistory.list()
         assertEquals(1, entries.size)
         assertEquals(reportResult.getOrThrow().reportId, entries.first().reportId)
+    }
+
+    @Test
+    fun `editing a saved draft updates the report without duplicating history`() = runTest {
+        val frame = CapturedFrame(0, 480, 800, Rotation.ROTATION_0, clock.now())
+        val draftId = orchestrator.startCapture(
+            windowId = 42L,
+            captureFrame = { Result.success(CaptureResult(frame, fakePngBytes())) },
+            packageName = { "com.test" },
+            draftStore = draftStore,
+            reportHistory = reportHistory,
+        ).getOrThrow()
+        val rectangle = RectangleAnnotation(AnnotationId("rect-1"), 0.1f, 0.1f, 0.5f, 0.5f, 0xFF0000FFL)
+        val first = orchestrator.finishPersistedDraft(
+            draftId, rectangle, "first", draftStore, reportHistory, draftDirectory,
+        ).getOrThrow()
+        val originalBefore = java.nio.file.Files.readAllBytes(draftDirectory.originalImagePath(draftId))
+        draftStore.writeAnnotated(draftId, "annotated".encodeToByteArray())
+
+        val second = orchestrator.finishPersistedDraft(
+            draftId, rectangle, "updated", draftStore, reportHistory, draftDirectory,
+        ).getOrThrow()
+
+        assertEquals(first.reportId, second.reportId)
+        assertEquals("updated", second.feedback.textBody)
+        assertTrue(originalBefore.contentEquals(java.nio.file.Files.readAllBytes(draftDirectory.originalImagePath(draftId))))
+        assertEquals(1, reportHistory.list().count { it.draftId == draftId })
+        assertTrue(second.attachments.any { it.fileName == "annotated.png" })
+    }
+
+    @Test
+    fun `saved selection is retained when resumed metadata has no candidates`() = runTest {
+        val frame = CapturedFrame(0, 480, 800, Rotation.ROTATION_0, clock.now())
+        val draftId = orchestrator.startCapture(
+            windowId = 42L,
+            captureFrame = { Result.success(CaptureResult(frame, fakePngBytes())) },
+            packageName = { "com.test" },
+            draftStore = draftStore,
+            reportHistory = reportHistory,
+        ).getOrThrow()
+        val node = NodeSnapshot(
+            nodeId = NodeId("node-1"),
+            windowId = 42,
+            boundsLeft = 100,
+            boundsTop = 100,
+            boundsRight = 300,
+            boundsBottom = 300,
+            text = "Button",
+        )
+        val rectangle = RectangleAnnotation(AnnotationId("rect-1"), 0.1f, 0.1f, 0.7f, 0.7f, 0xFF0000FFL)
+        orchestrator.finishDraft(
+            draftId, rectangle, "first", listOf(node),
+            Bounds(0.0, 0.0, 480.0, 800.0, CoordinateSpace.ScreenPx),
+            CaptureFrame(
+                displayId = 0,
+                windowId = 42,
+                packageName = "com.test",
+                widthPx = 480,
+                heightPx = 800,
+                density = 1f,
+                rotationDegrees = 0,
+                windowBoundsRight = 480,
+                contentBoundsRight = 480,
+                contentBoundsBottom = 800,
+                screenshotMethod = ScreenshotMethod.AccessibilityWindow,
+                monotonicTimestamp = clock.now().toEpochMilliseconds(),
+                wallClockTimestamp = clock.now(),
+            ),
+            CaptureSession("session", clock.now(), TriggerSource.QuickSettingsTile, CaptureMode.Still),
+            draftStore, reportHistory, draftDirectory,
+        ).getOrThrow()
+
+        val resumed = orchestrator.finishPersistedDraft(draftId, rectangle, "updated", draftStore, reportHistory, draftDirectory).getOrThrow()
+        assertEquals(NodeId("node-1"), resumed.selections.single().chosenNodeId)
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────

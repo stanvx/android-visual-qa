@@ -50,6 +50,7 @@ public open class VisualFeedbackAccessibilityService : AccessibilityService() {
     /** Last [AccessibilityEvent.getWindowId] from a
      * [AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED] event, or `null`. */
     private var lastActiveWindowId: Long? = null
+    private var previousActiveWindowId: Long? = null
 
     // ─── Service lifecycle ──────────────────────────────────────────────
 
@@ -90,7 +91,11 @@ public open class VisualFeedbackAccessibilityService : AccessibilityService() {
             // environments.
             try {
                 if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-                    lastActiveWindowId = event.windowId.toLong()
+                    val eventWindowId = event.windowId.toLong()
+                    if (lastActiveWindowId != null && eventWindowId != lastActiveWindowId) {
+                        previousActiveWindowId = lastActiveWindowId
+                    }
+                    lastActiveWindowId = eventWindowId
                 }
             } catch (_: RuntimeException) {
                 // Ignore on JVM test stubs
@@ -122,6 +127,7 @@ public open class VisualFeedbackAccessibilityService : AccessibilityService() {
         val display = dm.getDisplay(Display.DEFAULT_DISPLAY) ?: return null
 
         val bitmap: Bitmap
+        var hardwareBuffer: HardwareBuffer? = null
 
         // API 34+: per-window screenshot using takeScreenshotOfWindow
         if (Build.VERSION.SDK_INT >= 34) {
@@ -140,6 +146,7 @@ public open class VisualFeedbackAccessibilityService : AccessibilityService() {
             if (!latch.await(SCREENSHOT_TIMEOUT_MS, TimeUnit.MILLISECONDS)) return null
             if (errorCode != null) return null
             val hb = result?.hardwareBuffer ?: return null
+            hardwareBuffer = hb
             bitmap = Bitmap.wrapHardwareBuffer(hb, null) ?: return null
         } else {
             // API 30–33: display-wide screenshot
@@ -158,6 +165,7 @@ public open class VisualFeedbackAccessibilityService : AccessibilityService() {
             if (!latch.await(SCREENSHOT_TIMEOUT_MS, TimeUnit.MILLISECONDS)) return null
             if (errorCode != null) return null
             val hb = result?.hardwareBuffer ?: return null
+            hardwareBuffer = hb
             bitmap = Bitmap.wrapHardwareBuffer(hb, null) ?: return null
         }
 
@@ -167,6 +175,7 @@ public open class VisualFeedbackAccessibilityService : AccessibilityService() {
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
             stream.toByteArray()
         }
+        hardwareBuffer?.close()
         bitmap.recycle()
 
         return CapturedFrame(
@@ -175,6 +184,7 @@ public open class VisualFeedbackAccessibilityService : AccessibilityService() {
             heightPx = height,
             rotation = Rotation.fromSurfaceRotation(display.rotation),
             capturedAt = Clock.System.now(),
+            pngBytes = pngBytes,
         )
     }
 
@@ -183,6 +193,9 @@ public open class VisualFeedbackAccessibilityService : AccessibilityService() {
      * [AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED] source, or `null`.
      */
     public open fun activeWindowId(): Long? = lastActiveWindowId
+
+    /** Returns the window that was active immediately before the current one. */
+    public open fun previousWindowId(): Long? = previousActiveWindowId
 
     /**
      * Helper to create a [TakeScreenshotCallback] from lambdas.

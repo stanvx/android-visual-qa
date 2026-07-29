@@ -11,8 +11,30 @@
     <string name="quick_settings_tile_label">Capture feedback</string>
 
     <!-- Draft list -->
-    <string name="draft_list_title">Visual QA</string>
-    <string name="draft_list_empty_hint">Tap + to start a new draft</string>
+    <string name="draft_list_title">Captures</string>
+    <string name="draft_list_empty_hint">Open the page you want to review, then use Quick Settings or S Pen Air Command to capture it.</string>
+    <string name="draft_list_saved_hint">Saved reports will appear here.</string>
+
+    <!-- Captures dashboard -->
+    <string name="captures_title">Captures</string>
+    <string name="captures_subtitle">Saved and unfinished visual feedback</string>
+    <string name="captures_empty_title">Nothing captured yet</string>
+    <string name="captures_empty_body">This is where your marked-up pages will appear. Capture from the app you want to review using Quick Settings or S Pen Air Command.</string>
+    <string name="capture_guide_title">Capture from another app</string>
+    <string name="capture_guide_body">Visual QA stays out of the way while you review the page underneath it.</string>
+    <string name="capture_guide_step_one">1. Open the page you want to review</string>
+    <string name="capture_guide_step_two">2. Open Quick Settings and tap Capture feedback</string>
+    <string name="capture_guide_step_three">3. Mark the issue and add comments here</string>
+    <string name="captures_load_error_title">Captures could not load</string>
+    <string name="captures_load_error_body">Try again. Existing files are kept on this device.</string>
+    <string name="captures_retry">Retry</string>
+    <string name="capture_unknown_app">Unknown app</string>
+    <string name="capture_unfinished">Unfinished capture</string>
+    <string name="capture_status_draft">Draft</string>
+    <plurals name="capture_comment_count">
+        <item quantity="one">%d comment</item>
+        <item quantity="other">%d comments</item>
+    </plurals>
 
     <!-- Permission disclosure screen -->
     <string name="disclosure_title">Before you start</string>

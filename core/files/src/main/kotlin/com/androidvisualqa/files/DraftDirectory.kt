@@ -33,4 +33,10 @@ public data class DraftDirectory(public val root: Path) {
 
     /** Returns the path for the human-readable Markdown report. */
     public fun reportMarkdownPath(id: DraftId): Path = draftPath(id).resolve("report.md")
+
+    /** Returns the path for capture metadata and accessibility candidates. */
+    public fun captureContextPath(id: DraftId): Path = draftPath(id).resolve("capture-context.json")
+
+    /** Returns the path for editor changes that must survive process death. */
+    public fun editorStatePath(id: DraftId): Path = draftPath(id).resolve("editor-state.txt")
 }

@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.plugin.serialization)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.androidx.baselineprofile)
 }
@@ -97,6 +98,7 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.room.testing)
     implementation(libs.kotlinx.datetime)
+    implementation(libs.kotlinx.serialization.json)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

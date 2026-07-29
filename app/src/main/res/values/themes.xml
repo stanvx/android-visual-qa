@@ -8,4 +8,12 @@
     <style name="Theme.AndroidVisualQa" parent="android:Theme.Material.Light.NoActionBar">
         <!-- Default M3 values apply. Purple-40 surface tint shipped in M2. -->
     </style>
+
+    <style name="Theme.AndroidVisualQa.CaptureLaunch" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowDisablePreview">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
 </resources>

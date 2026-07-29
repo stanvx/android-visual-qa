@@ -7,13 +7,16 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.graphics.Rect
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.androidvisualqa.accessibility.VisualFeedbackAccessibilityService
+import com.androidvisualqa.accessibility.AccessibilityCaptureModule
 import com.androidvisualqa.app.trigger.QuickSettingsTile
-import com.androidvisualqa.capture.api.CapturedFrame
 import com.androidvisualqa.files.DraftDirectory
 import com.androidvisualqa.files.FileSystemDraftStore
+import com.androidvisualqa.geometry.Bounds
+import com.androidvisualqa.geometry.CoordinateSpace
 import com.androidvisualqa.model.ids.DraftId
 import com.androidvisualqa.report.FileSystemReportHistoryIndex
 import kotlinx.coroutines.CoroutineScope
@@ -21,7 +24,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.io.ByteArrayOutputStream
 import java.io.File
 
 /**
@@ -54,7 +56,7 @@ public class CaptureForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val notification = buildNotification()
         startForeground(NOTIFICATION_ID, notification)
-        startCaptureSequence()
+        startCaptureSequence(intent)
         return START_NOT_STICKY
     }
 
@@ -67,7 +69,7 @@ public class CaptureForegroundService : Service() {
 
     // ─── Private helpers ─────────────────────────────────────────────────
 
-    private fun startCaptureSequence() {
+    private fun startCaptureSequence(intent: Intent?) {
         val draftStore = FileSystemDraftStore(
             DraftDirectory(
                 getDir("drafts", Context.MODE_PRIVATE).toPath(),
@@ -78,9 +80,15 @@ public class CaptureForegroundService : Service() {
         )
 
         serviceScope.launch {
+            val autoOpenEditor = intent?.getBooleanExtra(EXTRA_AUTO_OPEN_EDITOR, false) == true
             val draftIdResult = performCapture(draftStore, reportHistory)
             draftIdResult.fold(
-                onSuccess = { draftId -> postSuccessNotification(draftId) },
+                onSuccess = { draftId ->
+                    postSuccessNotification(draftId)
+                    if (autoOpenEditor) {
+                        openEditor(draftId)
+                    }
+                },
                 onFailure = { error -> postErrorNotification(error) },
             )
             stopSelf()
@@ -94,20 +102,43 @@ public class CaptureForegroundService : Service() {
         val service = findAccessibilityService()
             ?: return Result.failure(IllegalStateException("Accessibility service not running"))
 
-        val windowId = service.activeWindowId()
-            ?: return Result.failure(IllegalStateException("No active accessibility window"))
+        val target = resolveTargetWindow(service)
+            ?: return Result.failure(IllegalStateException("No external app window available"))
+        val windowId = target.windowId
 
         val capturedFrame = service.takeWindowScreenshot(windowId)
             ?: return Result.failure(IllegalStateException("Window screenshot returned null"))
+        if (capturedFrame.pngBytes.isEmpty()) {
+            return Result.failure(IllegalStateException("Window screenshot contained no pixels"))
+        }
 
-        val pkgName = service.rootInActiveWindow?.packageName?.toString() ?: "unknown"
-
-        val pngBytes = compressToPng(capturedFrame)
+        val pkgName = target.packageName
+        val tree = AccessibilityCaptureModule { service }.snapshotTree(windowId)
+        val screenBounds = service.windows
+            ?.firstOrNull { it.id.toLong() == windowId }
+            ?.let { window ->
+                val bounds = Rect()
+                window.getBoundsInScreen(bounds)
+                Bounds(
+                    left = bounds.left.toDouble(),
+                    top = bounds.top.toDouble(),
+                    right = bounds.right.toDouble(),
+                    bottom = bounds.bottom.toDouble(),
+                    space = CoordinateSpace.ScreenPx,
+                )
+            }
 
         return orchestrator.startCapture(
             windowId = windowId,
             captureFrame = {
-                Result.success(CaptureResult(frame = capturedFrame, pngBytes = pngBytes))
+                Result.success(
+                    CaptureResult(
+                        frame = capturedFrame,
+                        pngBytes = capturedFrame.pngBytes,
+                        candidates = tree.nodes,
+                        screenBounds = screenBounds,
+                    ),
+                )
             },
             packageName = { pkgName },
             draftStore = draftStore,
@@ -115,25 +146,55 @@ public class CaptureForegroundService : Service() {
         )
     }
 
-    private fun findAccessibilityService(): VisualFeedbackAccessibilityService? {
-        // ponytail: global registry bridge until proper DI/binding in M3.
-        return AppServiceRegistry.accessibilityService
+    private fun resolveTargetWindow(
+        service: VisualFeedbackAccessibilityService,
+    ): TargetWindow? {
+        val windows = service.windows.orEmpty()
+        val byId = windows.associateBy { it.id.toLong() }
+        val candidates = buildList {
+            service.previousWindowId()?.let(::add)
+            service.activeWindowId()?.let(::add)
+            windows.filter { it.isActive }.mapTo(this) { it.id.toLong() }
+            windows.filter { it.isFocused }.mapTo(this) { it.id.toLong() }
+            windows.mapTo(this) { it.id.toLong() }
+        }.distinct()
+
+        return candidates.asSequence()
+            .mapNotNull { id -> byId[id] }
+            .mapNotNull { window ->
+                val root = window.root
+                val pkg = try {
+                    root?.packageName?.toString()
+                } finally {
+                    root?.recycle()
+                } ?: return@mapNotNull null
+                if (pkg == this@CaptureForegroundService.packageName ||
+                    pkg == "android" ||
+                    pkg == "com.android.systemui" ||
+                    pkg.startsWith("com.samsung.android.service.aircommand")
+                ) {
+                    null
+                } else {
+                    TargetWindow(window.id.toLong(), pkg)
+                }
+            }
+            .firstOrNull()
     }
 
-    private fun compressToPng(frame: CapturedFrame): ByteArray {
-        // Build a lightweight bitmap representation:
-        // We don't have direct pixel data so we produce a small placeholder.
-        // TODO(m3): pipe actual bitmap from takeWindowScreenshot
-        val bmp = android.graphics.Bitmap.createBitmap(
-            frame.widthPx.coerceAtLeast(1), frame.heightPx.coerceAtLeast(1),
-            android.graphics.Bitmap.Config.ARGB_8888,
-        )
-        val canvas = android.graphics.Canvas(bmp)
-        canvas.drawColor(android.graphics.Color.argb(255, 200, 200, 200))
-        val stream = ByteArrayOutputStream()
-        bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)
-        bmp.recycle()
-        return stream.toByteArray()
+    private data class TargetWindow(
+        val windowId: Long,
+        val packageName: String,
+    )
+
+    private suspend fun findAccessibilityService(): VisualFeedbackAccessibilityService? {
+        // ponytail: registry may not be set yet if the foreground service starts
+        // before the bridge's onServiceConnected() callback lands. Retry for up
+        // to 2 s so the QS-tap path works on cold start.
+        repeat(20) {
+            AppServiceRegistry.accessibilityService?.let { return it }
+            kotlinx.coroutines.delay(100)
+        }
+        return AppServiceRegistry.accessibilityService
     }
 
     private fun postSuccessNotification(draftId: DraftId) {
@@ -146,7 +207,7 @@ public class CaptureForegroundService : Service() {
             editorIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+        val notification = NotificationCompat.Builder(this, RESULT_CHANNEL_ID)
             .setContentTitle("Capture complete")
             .setContentText("Tap to edit draft \u2026")
             .setSmallIcon(android.R.drawable.ic_menu_camera)
@@ -158,24 +219,46 @@ public class CaptureForegroundService : Service() {
     }
 
     private fun postErrorNotification(error: Throwable) {
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+        val setupIntent = PendingIntent.getActivity(
+            this,
+            1006,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val notification = NotificationCompat.Builder(this, RESULT_CHANNEL_ID)
             .setContentTitle("Capture failed")
             .setContentText(error.message ?: "Unknown error")
             .setSmallIcon(android.R.drawable.ic_menu_close_clear_cancel)
+            .setContentIntent(setupIntent)
             .setAutoCancel(true)
             .build()
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(RESULT_NOTIFICATION_ID, notification)
     }
 
+    private fun openEditor(draftId: DraftId) {
+        startActivity(
+            Intent(this, MainActivity::class.java).apply {
+                putExtra(EXTRA_DRAFT_ID, draftId.value)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            },
+        )
+    }
+
     private fun buildNotification(): Notification {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channel = NotificationChannel(
+        val foregroundChannel = NotificationChannel(
             CHANNEL_ID,
             "Capture Service",
             NotificationManager.IMPORTANCE_LOW,
         )
-        nm.createNotificationChannel(channel)
+        val resultChannel = NotificationChannel(
+            RESULT_CHANNEL_ID,
+            "Capture results",
+            NotificationManager.IMPORTANCE_DEFAULT,
+        )
+        nm.createNotificationChannel(foregroundChannel)
+        nm.createNotificationChannel(resultChannel)
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Capturing screen\u2026")
@@ -187,7 +270,52 @@ public class CaptureForegroundService : Service() {
 
     internal companion object {
         internal const val CHANNEL_ID: String = "capture_foreground"
+        internal const val RESULT_CHANNEL_ID: String = "capture_results"
+        internal const val READY_NOTIFICATION_ID: Int = 1003
+        internal const val EXTRA_DRAFT_ID: String = "draftId"
+        internal const val EXTRA_AUTO_OPEN_EDITOR: String = "autoOpenEditor"
         private const val NOTIFICATION_ID: Int = 1001
         private const val RESULT_NOTIFICATION_ID: Int = 1002
+
+        internal fun showReadyNotification(context: Context) {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    READY_CHANNEL_ID,
+                    "Capture actions",
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ),
+            )
+            if (!androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()) {
+                return
+            }
+            val captureIntent = Intent(context, CaptureLaunchActivity::class.java)
+                .putExtra(CaptureLaunchActivity.EXTRA_CAPTURE_REQUEST, true)
+            val pendingIntent = PendingIntent.getActivity(
+                context,
+                READY_NOTIFICATION_ID,
+                captureIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            nm.notify(
+                READY_NOTIFICATION_ID,
+                NotificationCompat.Builder(context, READY_CHANNEL_ID)
+                    .setContentTitle("Capture feedback")
+                    .setContentText("Tap to capture the app underneath")
+                    .setSmallIcon(android.R.drawable.ic_menu_camera)
+                    .setContentIntent(pendingIntent)
+                    .setOngoing(true)
+                    .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                    .setOnlyAlertOnce(true)
+                    .build(),
+            )
+        }
+
+        internal fun cancelReadyNotification(context: Context) {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.cancel(READY_NOTIFICATION_ID)
+        }
+
+        private const val READY_CHANNEL_ID: String = "capture_actions"
     }
 }
