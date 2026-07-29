@@ -28,9 +28,11 @@ internal class BridgeAccessibilityService : VisualFeedbackAccessibilityService()
         super.onServiceConnected()
         // Also update here in case the service instance is reused.
         AppServiceRegistry.accessibilityService = this
+        CaptureForegroundService.showReadyNotification(this)
     }
 
     override fun onDestroy() {
+        CaptureForegroundService.cancelReadyNotification(this)
         super.onDestroy()
         if (AppServiceRegistry.accessibilityService === this) {
             AppServiceRegistry.accessibilityService = null

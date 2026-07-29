@@ -35,6 +35,7 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:files"))
     implementation(libs.kotlinx.datetime)
+    implementation(libs.kotlinx.serialization.json)
 
     // Compose
     implementation(platform(libs.androidx.compose.bom))

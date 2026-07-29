@@ -1,5 +1,7 @@
 package com.androidvisualqa.app.trigger
 
+import android.app.PendingIntent
+import android.os.Build
 import android.content.Intent
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
@@ -41,6 +43,20 @@ public class QuickSettingsTile : TileService() {
 
     override fun onClick() {
         super.onClick()
-        startActivityAndCollapse(Intent(this, CaptureLaunchActivity::class.java))
+        val captureIntent = Intent(this, CaptureLaunchActivity::class.java)
+            .putExtra(CaptureLaunchActivity.EXTRA_CAPTURE_REQUEST, true)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            // Android 14+ rejects the Intent overload from a TileService.
+            startActivityAndCollapse(
+                PendingIntent.getActivity(
+                    this,
+                    1004,
+                    captureIntent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                ),
+            )
+        } else {
+            startActivityAndCollapse(captureIntent)
+        }
     }
 }

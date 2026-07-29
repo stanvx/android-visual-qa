@@ -1,6 +1,9 @@
 package com.androidvisualqa.app
 
 import com.androidvisualqa.annotation.RectangleAnnotation
+import com.androidvisualqa.annotation.AnnotationGeometry
+import com.androidvisualqa.annotation.AnnotationItem
+import com.androidvisualqa.annotation.toRectangleOrNull
 import com.androidvisualqa.capture.api.CapturedFrame
 import com.androidvisualqa.files.DraftDirectory
 import com.androidvisualqa.files.FileSystemDraftStore
@@ -17,6 +20,7 @@ import com.androidvisualqa.model.ReportStatus
 import com.androidvisualqa.model.VisualFeedbackReport
 import com.androidvisualqa.model.annotation.AnnotationEvidence
 import com.androidvisualqa.model.annotation.AnnotationTool
+import com.androidvisualqa.model.annotation.AnnotationComment as ModelAnnotationComment
 import com.androidvisualqa.model.attachment.AttachmentRef
 import com.androidvisualqa.model.capture.CaptureFrame
 import com.androidvisualqa.model.capture.CaptureSession
@@ -211,6 +215,7 @@ public class CaptureOrchestrator(
         draftDirectory: DraftDirectory,
     ): Result<VisualFeedbackReport> {
         // 1. Build the matching input from the user's rectangle
+        val existingReport = readReport(draftDirectory.reportJsonPath(draftId))
         val selectionAndAnnotation = rectangle?.let { rect ->
             val ranked = MatchingEngine().rank(
                 MatchingInput(
@@ -220,7 +225,11 @@ public class CaptureOrchestrator(
                 ),
             )
             val decision = DecisionPolicy.apply(ranked)
-            ComponentSelection(
+            val selection = (if (candidates.isEmpty()) {
+                existingReport?.selections?.firstOrNull { it.annotationId == rect.id.value }
+            } else {
+                null
+            } ?: ComponentSelection(
                 selectionId = UUID.randomUUID().toString(),
                 annotationId = rect.id.value,
                 chosenNodeId = decision.top?.node?.nodeId,
@@ -236,7 +245,8 @@ public class CaptureOrchestrator(
                 scoreSdkEvidence = decision.top?.scoreSdkEvidence ?: 0.0,
                 choiceType = decision.choiceType,
                 evidenceSource = EvidenceSource.Accessibility,
-            ) to AnnotationEvidence(
+            ))
+            selection to AnnotationEvidence(
                 annotationId = rect.id.value,
                 toolType = AnnotationTool.Rectangle,
                 boundingBoxLeft = normalised(rect.left, frame.widthPx),
@@ -265,16 +275,32 @@ public class CaptureOrchestrator(
             ByteArray(0)
         }
 
-        val attachmentRefs = listOf(
-            AttachmentRef(
-                attachmentId = AttachmentId(UUID.randomUUID().toString()),
-                fileName = "original.png",
-                mimeType = "image/png",
-                sizeBytes = originalBytes.size.toLong(),
-                sha256Hex = if (originalBytes.isNotEmpty()) Hashing.sha256(originalBytes) else "",
-                role = "original_screenshot",
-            ),
-        )
+        val attachmentRefs = buildList {
+            add(
+                AttachmentRef(
+                    attachmentId = AttachmentId(UUID.randomUUID().toString()),
+                    fileName = "original.png",
+                    mimeType = "image/png",
+                    sizeBytes = originalBytes.size.toLong(),
+                    sha256Hex = if (originalBytes.isNotEmpty()) Hashing.sha256(originalBytes) else "",
+                    role = "original_screenshot",
+                ),
+            )
+            val annotatedPath = draftDirectory.annotatedImagePath(draftId)
+            if (Files.exists(annotatedPath)) {
+                val annotatedBytes = Files.readAllBytes(annotatedPath)
+                add(
+                    AttachmentRef(
+                        attachmentId = AttachmentId(UUID.randomUUID().toString()),
+                        fileName = "annotated.png",
+                        mimeType = "image/png",
+                        sizeBytes = annotatedBytes.size.toLong(),
+                        sha256Hex = Hashing.sha256(annotatedBytes),
+                        role = "annotated_image",
+                    ),
+                )
+            }
+        }
 
         // 9. Assemble the report
         val assembler = ReportAssembler(clock)
@@ -287,7 +313,10 @@ public class CaptureOrchestrator(
             privacy = privacyEvidence,
             attachments = attachmentRefs,
         )
-        val report = assembler.assemble(assemblyInput, ReportStatus.Saved)
+        val assembledReport = assembler.assemble(assemblyInput, ReportStatus.Saved)
+        val report = existingReport?.let {
+            assembledReport.copy(reportId = it.reportId, exports = it.exports)
+        } ?: assembledReport
 
         // 10. Write report files
         val jsonWriter = JsonReportWriter()
@@ -304,12 +333,14 @@ public class CaptureOrchestrator(
         ).getOrElse { return Result.failure(it) }
 
         // 11. Write updated manifest with completed state
+        val existingManifest = draftStore.readDraft(draftId).getOrNull()
         draftStore.writeManifest(
             draftId,
             com.androidvisualqa.files.DraftManifest(
                 draftId = draftId,
-                createdAt = clock.now(),
+                createdAt = existingManifest?.createdAt ?: clock.now(),
                 originalSha256 = if (originalBytes.isNotEmpty()) Hashing.sha256(originalBytes) else null,
+                annotatedSha256 = existingManifest?.annotatedSha256,
                 reportSchemaVersion = com.androidvisualqa.model.VisualFeedbackReport.CURRENT_SCHEMA_VERSION,
                 captureState = "Complete",
                 displayId = frame.displayId,
@@ -321,16 +352,18 @@ public class CaptureOrchestrator(
             ),
         ).getOrElse { return Result.failure(it) }
 
-        // 12. Append to history
-        reportHistory.append(
-            HistoryEntry(
-                draftId = draftId,
-                reportId = report.reportId,
-                createdAt = clock.now(),
-                status = ReportStatus.Saved,
-                packageName = frame.packageName,
-            ),
-        ).getOrElse { return Result.failure(it) }
+        // 12. Add only the first history entry for this draft; later saves update its report.
+        if (reportHistory.list().none { it.draftId == draftId }) {
+            reportHistory.append(
+                HistoryEntry(
+                    draftId = draftId,
+                    reportId = report.reportId,
+                    createdAt = clock.now(),
+                    status = ReportStatus.Saved,
+                    packageName = frame.packageName,
+                ),
+            ).getOrElse { return Result.failure(it) }
+        }
 
         return Result.success(report)
     }
@@ -362,7 +395,17 @@ public class CaptureOrchestrator(
 
         val manifest = draftStore.readDraft(draftId).getOrElse { return Result.failure(it) }
             ?: return Result.failure(IllegalStateException("Draft ${draftId.value} has no manifest"))
+        val existingReport = readReport(draftDirectory.reportJsonPath(draftId))
         val now = clock.now()
+        if (existingReport != null) {
+            return finishDraft(
+                draftId, rectangle, feedback, emptyList(),
+                Bounds(0.0, 0.0, existingReport.frame.widthPx.toDouble(), existingReport.frame.heightPx.toDouble(), CoordinateSpace.ScreenPx),
+                existingReport.frame,
+                existingReport.capture,
+                draftStore, reportHistory, draftDirectory,
+            )
+        }
         val frame = CaptureFrame(
             displayId = manifest.displayId,
             windowId = manifest.windowId,
@@ -387,6 +430,36 @@ public class CaptureOrchestrator(
         )
     }
 
+    /** Finishes a draft while preserving every markup item and linked comment. */
+    public suspend fun finishPersistedDraft(
+        draftId: DraftId,
+        annotations: List<AnnotationItem>,
+        feedback: String,
+        draftStore: FileSystemDraftStore,
+        reportHistory: FileSystemReportHistoryIndex,
+        draftDirectory: DraftDirectory,
+    ): Result<VisualFeedbackReport> {
+        val base = finishPersistedDraft(
+            draftId = draftId,
+            rectangle = annotations.firstNotNullOfOrNull(AnnotationItem::toRectangleOrNull),
+            feedback = feedback,
+            draftStore = draftStore,
+            reportHistory = reportHistory,
+            draftDirectory = draftDirectory,
+        ).getOrElse { return Result.failure(it) }
+
+        val updated = base.copy(
+            annotations = annotations.map { it.toEvidence(base.frame) },
+        )
+        JsonReportWriter().write(updated, draftDirectory.reportJsonPath(draftId))
+            .getOrElse { return Result.failure(it) }
+        AtomicFileWriter.writeTextAtomically(
+            draftDirectory.reportMarkdownPath(draftId),
+            MarkdownReportWriter().write(updated),
+        ).getOrElse { return Result.failure(it) }
+        return Result.success(updated)
+    }
+
     public suspend fun readCaptureContext(
         draftId: DraftId,
         draftDirectory: DraftDirectory,
@@ -394,6 +467,10 @@ public class CaptureOrchestrator(
         val path = draftDirectory.captureContextPath(draftId)
         if (!Files.exists(path)) null else JsonConfig.decodeFromString<DraftCaptureContext>(path.toFile().readText())
     }
+
+    private fun readReport(path: java.nio.file.Path): VisualFeedbackReport? = runCatching {
+        if (!Files.exists(path)) null else JsonConfig.decodeFromString<VisualFeedbackReport>(path.toFile().readText())
+    }.getOrNull()
 
     // ─── Internal helpers ────────────────────────────────────────────────
 
@@ -425,6 +502,43 @@ public class CaptureOrchestrator(
 
     private fun normalised(value: Float, size: Int): Double =
         if (value in 0f..1f) value.toDouble() else value.toDouble() / size.coerceAtLeast(1)
+
+    private fun AnnotationItem.toEvidence(frame: CaptureFrame): AnnotationEvidence {
+        val bounds = bounds
+        val tool = when (geometry) {
+            is AnnotationGeometry.Region -> AnnotationTool.Rectangle
+            is AnnotationGeometry.Lasso -> AnnotationTool.Pen
+            is AnnotationGeometry.Freehand -> AnnotationTool.Pen
+            is AnnotationGeometry.Arrow -> AnnotationTool.Arrow
+            is AnnotationGeometry.TextNote -> AnnotationTool.TextNote
+            is AnnotationGeometry.CommentMarker -> AnnotationTool.TextNote
+        }
+        val points = when (val value = geometry) {
+            is AnnotationGeometry.Region -> emptyList()
+            is AnnotationGeometry.Lasso -> value.points.map { com.androidvisualqa.model.annotation.NormalizedPoint(it.x.toDouble(), it.y.toDouble()) }
+            is AnnotationGeometry.Freehand -> value.points.map { com.androidvisualqa.model.annotation.NormalizedPoint(it.x.toDouble(), it.y.toDouble()) }
+            is AnnotationGeometry.Arrow -> listOf(
+                com.androidvisualqa.model.annotation.NormalizedPoint(value.start.x.toDouble(), value.start.y.toDouble()),
+                com.androidvisualqa.model.annotation.NormalizedPoint(value.end.x.toDouble(), value.end.y.toDouble()),
+            )
+            is AnnotationGeometry.TextNote -> listOf(com.androidvisualqa.model.annotation.NormalizedPoint(value.position.x.toDouble(), value.position.y.toDouble()))
+            is AnnotationGeometry.CommentMarker -> listOf(com.androidvisualqa.model.annotation.NormalizedPoint(value.position.x.toDouble(), value.position.y.toDouble()))
+        }
+        return AnnotationEvidence(
+            annotationId = id.value,
+            toolType = tool,
+            strokePoints = points,
+            boundingBoxLeft = bounds.left.toDouble(),
+            boundingBoxTop = bounds.top.toDouble(),
+            boundingBoxRight = bounds.right.toDouble(),
+            boundingBoxBottom = bounds.bottom.toDouble(),
+            displayRotationDegrees = frame.rotationDegrees,
+            displayWidthPx = frame.widthPx,
+            displayHeightPx = frame.heightPx,
+            linkedComment = comments.firstOrNull()?.text,
+            linkedComments = comments.map { ModelAnnotationComment(it.id, it.text) },
+        )
+    }
 
     public companion object {
         /** Creates a [CaptureOrchestrator] with default dependencies. */

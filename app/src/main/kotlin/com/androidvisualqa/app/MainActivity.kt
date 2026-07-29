@@ -6,30 +6,21 @@ import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -40,12 +31,15 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.androidvisualqa.annotation.EditorScreen
 import com.androidvisualqa.annotation.EditorViewModel
-import com.androidvisualqa.annotation.RectangleAnnotation
+import com.androidvisualqa.annotation.AnnotationItem
+import com.androidvisualqa.annotation.NormalizedBounds
 import com.androidvisualqa.database.RetentionConfig
 import com.androidvisualqa.files.DraftDirectory
 import com.androidvisualqa.files.FileSystemDraftStore
 import com.androidvisualqa.model.ids.DraftId
 import com.androidvisualqa.report.FileSystemReportHistoryIndex
+import com.androidvisualqa.app.ui.dashboard.CapturesDashboardScreen
+import com.androidvisualqa.app.ui.history.CaptureHistoryViewModel
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -60,8 +54,18 @@ import java.io.File
  * resumption is available through [ResumeDraftCoordinator].
  */
 public class MainActivity : ComponentActivity() {
+    private val pendingDraftId = mutableStateOf<String?>(null)
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingDraftId.value = intent.getStringExtra(EXTRA_DRAFT_ID)?.takeIf(::isValidDraftId)
+    }
+
+    @androidx.compose.material3.ExperimentalMaterial3Api
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
 
         // Track first-launch in SharedPreferences
         val prefs = getSharedPreferences("visual_qa_prefs", Context.MODE_PRIVATE)
@@ -80,6 +84,8 @@ public class MainActivity : ComponentActivity() {
                     applicationContext = applicationContext,
                     startAtDisclosure = !firstLaunchDone,
                     initialDraftId = initialDraftId,
+                    pendingDraftId = pendingDraftId.value,
+                    onDraftOpened = { pendingDraftId.value = null },
                     onDisclosureComplete = {
                         prefs.edit().putBoolean("first_launch_done", true).apply()
                     },
@@ -104,10 +110,13 @@ private fun VisualQaTheme(content: @Composable () -> Unit) {
 }
 
 @Composable
+@androidx.compose.material3.ExperimentalMaterial3Api
 private fun AppNavigation(
     applicationContext: Context,
     startAtDisclosure: Boolean = false,
     initialDraftId: String? = null,
+    pendingDraftId: String? = null,
+    onDraftOpened: () -> Unit = {},
     onDisclosureComplete: () -> Unit = {},
 ) {
     val navController = rememberNavController()
@@ -123,6 +132,15 @@ private fun AppNavigation(
     val reportHistory = remember {
         val file = File(applicationContext.filesDir, "report_history.jsonl")
         FileSystemReportHistoryIndex(file.toPath())
+    }
+
+    androidx.compose.runtime.LaunchedEffect(pendingDraftId) {
+        pendingDraftId?.let { id ->
+            navController.navigate("editor/$id") {
+                launchSingleTop = true
+            }
+            onDraftOpened()
+        }
     }
 
     NavHost(
@@ -144,14 +162,11 @@ private fun AppNavigation(
             )
         }
         composable("drafts") {
-            DraftListScreen(
-                onNewDraft = {
-                    applicationContext.startActivity(
-                        Intent(applicationContext, CaptureLaunchActivity::class.java)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                    )
-                },
-                onOpenDraft = { draftId -> navController.navigate("editor/$draftId") },
+            val historyViewModel: CaptureHistoryViewModel = viewModel()
+            CapturesDashboardScreen(
+                uiState = historyViewModel.uiState.collectAsStateWithLifecycle().value,
+                onRefresh = historyViewModel::refresh,
+                onOpenCapture = { draftId -> navController.navigate("editor/$draftId") },
             )
         }
         composable(
@@ -163,7 +178,7 @@ private fun AppNavigation(
             EditorScreenWrapper(
                 viewModel = viewModel,
                 draftId = if (draftId == "new") null else draftId,
-                onSave = { rect, text ->
+                onSave = { annotations, text ->
                     val id = draftId?.let(::DraftId)
                     if (id == null) {
                         navController.popBackStack()
@@ -171,7 +186,7 @@ private fun AppNavigation(
                         scope.launch {
                             orchestrator.finishPersistedDraft(
                                 draftId = id,
-                                rectangle = rect,
+                                annotations = annotations,
                                 feedback = text,
                                 draftStore = draftStore,
                                 reportHistory = reportHistory,
@@ -188,64 +203,29 @@ private fun AppNavigation(
                         }
                     }
                 },
+                loadSnapCandidates = {
+                    draftId?.let { id ->
+                        orchestrator.readCaptureContext(DraftId(id), draftStore.directory)
+                            .getOrNull()
+                            ?.let { context ->
+                                val screen = context.screenBounds()
+                                if (screen.width <= 0.0 || screen.height <= 0.0) emptyList()
+                                else context.candidates.mapNotNull { node ->
+                                    if (!node.isVisibleToUser || node.boundsRight <= node.boundsLeft || node.boundsBottom <= node.boundsTop) {
+                                        null
+                                    } else {
+                                        NormalizedBounds.from(
+                                            ((node.boundsLeft - screen.left) / screen.width).toFloat(),
+                                            ((node.boundsTop - screen.top) / screen.height).toFloat(),
+                                            ((node.boundsRight - screen.left) / screen.width).toFloat(),
+                                            ((node.boundsBottom - screen.top) / screen.height).toFloat(),
+                                        )
+                                    }
+                                }
+                            }
+                    }.orEmpty()
+                },
                 onCancel = { navController.popBackStack() },
-            )
-        }
-    }
-}
-
-/**
- * Draft list screen. Its capture action uses the same entry point as Quick
- * Settings and S Pen Air Command.
- */
-@Composable
-private fun DraftListScreen(
-    onNewDraft: () -> Unit,
-    onOpenDraft: (String) -> Unit,
-) {
-    Scaffold(
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onNewDraft,
-                icon = { Text(text = "+", style = MaterialTheme.typography.titleLarge) },
-                text = { Text(text = stringResource(R.string.capture_screen_action)) },
-            )
-        },
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.primaryContainer,
-                tonalElevation = 2.dp,
-            ) {
-                Column(modifier = Modifier.padding(24.dp)) {
-                    Text(
-                        text = stringResource(R.string.draft_list_title),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                    Text(
-                        text = stringResource(R.string.draft_list_empty_hint),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                }
-            }
-            Text(
-                text = stringResource(R.string.draft_list_saved_hint),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 16.dp, start = 24.dp, end = 24.dp),
             )
         }
     }
@@ -260,41 +240,27 @@ private const val EXTRA_DRAFT_ID = "draftId"
  * Wraps the [EditorScreen] with a [EditorViewModel], loading the given [draftId].
  */
 @Composable
+@androidx.compose.material3.ExperimentalMaterial3Api
 private fun EditorScreenWrapper(
     viewModel: EditorViewModel,
     draftId: String?,
-    onSave: (RectangleAnnotation?, String) -> Unit,
+    onSave: (List<AnnotationItem>, String) -> Unit,
+    loadSnapCandidates: suspend () -> List<NormalizedBounds> = { emptyList() },
     onCancel: () -> Unit,
 ) {
     androidx.compose.runtime.LaunchedEffect(draftId) {
         viewModel.loadDraft(
             draftId?.let { DraftId(it) }
         )
+        viewModel.setSnapCandidates(loadSnapCandidates())
     }
 
     val state = viewModel.state.collectAsStateWithLifecycle().value
-    val lastStateRef = remember { arrayOf(state) }
-
     EditorScreen(
         state = state,
-        onStateChange = { newState ->
-            val prev = lastStateRef[0]
-            lastStateRef[0] = newState
-            when {
-                prev.undoStack.size > newState.undoStack.size -> viewModel.undo()
-                prev.redoStack.size > newState.redoStack.size -> viewModel.redo()
-                newState.rectangles.size > prev.rectangles.size -> {
-                    val added = newState.rectangles.last()
-                    viewModel.addRectangle(added)
-                }
-                newState.feedbackText != prev.feedbackText -> {
-                    viewModel.setFeedbackText(newState.feedbackText)
-                }
-            }
-        },
-        onSave = { rect, text ->
-            viewModel.save { r, t -> onSave(r, t) }
-        },
+        onStateChange = viewModel::replaceState,
+        onSave = { _, _ -> },
+        onSaveAnnotations = { _, _ -> viewModel.saveAnnotations { items, savedText -> onSave(items, savedText) } },
         onCancel = onCancel,
     )
 }

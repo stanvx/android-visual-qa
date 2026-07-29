@@ -23,6 +23,8 @@ import kotlinx.serialization.Serializable
  * @property displayWidthPx Display pixel width at creation.
  * @property displayHeightPx Display pixel height at creation.
  * @property linkedComment Optional text or transcript segment reference.
+ * @property linkedComments Comments attached to this annotation. The legacy
+ * linkedComment field remains for readers and writers of schema v1 evidence.
  * @property undoGroupId Strokes that should undo together share a group ID.
  */
 @Serializable
@@ -41,7 +43,15 @@ data class AnnotationEvidence(
     val displayWidthPx: Int = 0,
     val displayHeightPx: Int = 0,
     val linkedComment: String? = null,
+    val linkedComments: List<AnnotationComment> = emptyList(),
     val undoGroupId: String? = null,
+)
+
+/** A persisted comment linked to one annotation ID by its containing evidence. */
+@Serializable
+data class AnnotationComment(
+    val commentId: String,
+    val text: String,
 )
 
 /**

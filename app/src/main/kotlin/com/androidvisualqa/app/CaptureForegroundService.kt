@@ -207,7 +207,7 @@ public class CaptureForegroundService : Service() {
             editorIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+        val notification = NotificationCompat.Builder(this, RESULT_CHANNEL_ID)
             .setContentTitle("Capture complete")
             .setContentText("Tap to edit draft \u2026")
             .setSmallIcon(android.R.drawable.ic_menu_camera)
@@ -219,10 +219,17 @@ public class CaptureForegroundService : Service() {
     }
 
     private fun postErrorNotification(error: Throwable) {
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+        val setupIntent = PendingIntent.getActivity(
+            this,
+            1006,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val notification = NotificationCompat.Builder(this, RESULT_CHANNEL_ID)
             .setContentTitle("Capture failed")
             .setContentText(error.message ?: "Unknown error")
             .setSmallIcon(android.R.drawable.ic_menu_close_clear_cancel)
+            .setContentIntent(setupIntent)
             .setAutoCancel(true)
             .build()
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -240,12 +247,18 @@ public class CaptureForegroundService : Service() {
 
     private fun buildNotification(): Notification {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channel = NotificationChannel(
+        val foregroundChannel = NotificationChannel(
             CHANNEL_ID,
             "Capture Service",
             NotificationManager.IMPORTANCE_LOW,
         )
-        nm.createNotificationChannel(channel)
+        val resultChannel = NotificationChannel(
+            RESULT_CHANNEL_ID,
+            "Capture results",
+            NotificationManager.IMPORTANCE_DEFAULT,
+        )
+        nm.createNotificationChannel(foregroundChannel)
+        nm.createNotificationChannel(resultChannel)
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Capturing screen\u2026")
@@ -257,9 +270,52 @@ public class CaptureForegroundService : Service() {
 
     internal companion object {
         internal const val CHANNEL_ID: String = "capture_foreground"
+        internal const val RESULT_CHANNEL_ID: String = "capture_results"
+        internal const val READY_NOTIFICATION_ID: Int = 1003
         internal const val EXTRA_DRAFT_ID: String = "draftId"
         internal const val EXTRA_AUTO_OPEN_EDITOR: String = "autoOpenEditor"
         private const val NOTIFICATION_ID: Int = 1001
         private const val RESULT_NOTIFICATION_ID: Int = 1002
+
+        internal fun showReadyNotification(context: Context) {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    READY_CHANNEL_ID,
+                    "Capture actions",
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ),
+            )
+            if (!androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()) {
+                return
+            }
+            val captureIntent = Intent(context, CaptureLaunchActivity::class.java)
+                .putExtra(CaptureLaunchActivity.EXTRA_CAPTURE_REQUEST, true)
+            val pendingIntent = PendingIntent.getActivity(
+                context,
+                READY_NOTIFICATION_ID,
+                captureIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            nm.notify(
+                READY_NOTIFICATION_ID,
+                NotificationCompat.Builder(context, READY_CHANNEL_ID)
+                    .setContentTitle("Capture feedback")
+                    .setContentText("Tap to capture the app underneath")
+                    .setSmallIcon(android.R.drawable.ic_menu_camera)
+                    .setContentIntent(pendingIntent)
+                    .setOngoing(true)
+                    .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                    .setOnlyAlertOnce(true)
+                    .build(),
+            )
+        }
+
+        internal fun cancelReadyNotification(context: Context) {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.cancel(READY_NOTIFICATION_ID)
+        }
+
+        private const val READY_CHANNEL_ID: String = "capture_actions"
     }
 }
